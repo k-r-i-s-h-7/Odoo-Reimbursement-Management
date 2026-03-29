@@ -38,7 +38,7 @@ const ApprovalsIcon = () => (
 )
 
 const createDefaultApprovalConfig = (user) => ({
-  ruleTitle: '',
+  ruleType: 'percentage', // percentage | specific-approver | hybrid
   approvalManagerId: user?.role === 'EMPLOYEE' ? user?.managerId ?? '' : '',
   isManagerApprover: user?.role === 'EMPLOYEE' ? Boolean(user?.managerId) : false,
   approversSequence: false,
@@ -46,6 +46,8 @@ const createDefaultApprovalConfig = (user) => ({
   requiredApproverIds: user?.role === 'EMPLOYEE' && user?.managerId ? [user.managerId] : [],
   approverIds: user?.role === 'EMPLOYEE' && user?.managerId ? [user.managerId] : [],
   isSelfApprover: user?.role === 'MANAGER',
+  specificApproverId: '', // for specific-approver rule
+  hybridPercentage: '60', // for hybrid rule
 })
 
 const AdminDashboardPage = () => {
@@ -59,6 +61,8 @@ const AdminDashboardPage = () => {
   const [selectedUserId, setSelectedUserId] = useState('')
   const [approvalsByUser, setApprovalsByUser] = useState({})
   const [approverToAddId, setApproverToAddId] = useState('')
+  const [isSavingApprovals, setIsSavingApprovals] = useState(false)
+  const [approvalSaveMessage, setApprovalSaveMessage] = useState('')
 
   const [company, setCompany] = useState({
     name: '',
@@ -310,6 +314,44 @@ const AdminDashboardPage = () => {
     })
   }
 
+  const handleSaveApprovalRule = async () => {
+    if (!selectedUserId || !approvalConfig) {
+      setApprovalSaveMessage('Please select a user and configure the approval rule.')
+      return
+    }
+
+    setIsSavingApprovals(true)
+    setApprovalSaveMessage('')
+
+    try {
+      const payload = {
+        userId: selectedUserId,
+        ruleConfig: approvalConfig,
+      }
+
+      const response = await fetch('/api/admin/approval-rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        setApprovalSaveMessage('✓ Approval rule saved successfully!')
+        setTimeout(() => setApprovalSaveMessage(''), 3000)
+        console.log('[Frontend] Approval rule saved:', result)
+      } else {
+        const error = await response.json()
+        setApprovalSaveMessage(`✗ Error: ${error.message || 'Failed to save approval rule'}`)
+      }
+    } catch (err) {
+      console.error('[Frontend] Error saving approval rule:', err)
+      setApprovalSaveMessage('✗ Error: Failed to save approval rule. Please try again.')
+    } finally {
+      setIsSavingApprovals(false)
+    }
+  }
+
   return (
     <main className="flex h-screen overflow-hidden bg-background text-foreground">
       <aside
@@ -555,14 +597,98 @@ const AdminDashboardPage = () => {
                       </div>
 
                       <div>
-                        <label className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Approval Rule</label>
-                        <input
+                        <label className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Approval Rule Type</label>
+                        <select
                           className={`${inputClass} mt-1`}
-                          placeholder="Approval rule for miscellaneous expenses"
-                          value={approvalConfig.ruleTitle}
-                          onChange={(event) => updateApprovalConfig({ ruleTitle: event.target.value })}
-                        />
+                          value={approvalConfig.ruleType}
+                          onChange={(event) => updateApprovalConfig({ ruleType: event.target.value })}
+                        >
+                          <option value="percentage">Percentage Rule (e.g., 60% of approvers)</option>
+                          <option value="specific-approver">Specific Approver Rule (e.g., CFO approves)</option>
+                          <option value="hybrid">Hybrid Rule (Percentage OR Specific Approver)</option>
+                        </select>
                       </div>
+
+                      {/* Rule-Specific Configuration */}
+                      {approvalConfig.ruleType === 'percentage' && (
+                        <div>
+                          <label className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Minimum Approval Percentage</label>
+                          <div className="mt-1 flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              className={inputClass}
+                              value={approvalConfig.minimumApprovalPercentage}
+                              onChange={(event) => updateApprovalConfig({ minimumApprovalPercentage: event.target.value })}
+                            />
+                            <span className="text-sm text-muted-foreground">%</span>
+                          </div>
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            Example: If set to 60%, expense is approved when 60% of all approvers approve.
+                          </p>
+                        </div>
+                      )}
+
+                      {approvalConfig.ruleType === 'specific-approver' && (
+                        <div>
+                          <label className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Required Approver (e.g., CFO)</label>
+                          <select
+                            className={`${inputClass} mt-1`}
+                            value={approvalConfig.specificApproverId ?? ''}
+                            onChange={(event) => updateApprovalConfig({ specificApproverId: event.target.value })}
+                          >
+                            <option value="">Select required approver</option>
+                            {availableApprovers.map((approver) => (
+                              <option key={approver.id} value={approver.id}>
+                                {approver.name}
+                              </option>
+                            ))}
+                          </select>
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            Example: If you select "CFO", the expense is auto-approved when the CFO approves, regardless of other approvers.
+                          </p>
+                        </div>
+                      )}
+
+                      {approvalConfig.ruleType === 'hybrid' && (
+                        <>
+                          <div>
+                            <label className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Hybrid: Percentage Threshold</label>
+                            <div className="mt-1 flex items-center gap-2">
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                className={inputClass}
+                                value={approvalConfig.hybridPercentage}
+                                onChange={(event) => updateApprovalConfig({ hybridPercentage: event.target.value })}
+                              />
+                              <span className="text-sm text-muted-foreground">%</span>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Hybrid: Required Approver</label>
+                            <select
+                              className={`${inputClass} mt-1`}
+                              value={approvalConfig.specificApproverId ?? ''}
+                              onChange={(event) => updateApprovalConfig({ specificApproverId: event.target.value })}
+                            >
+                              <option value="">Select approver</option>
+                              {availableApprovers.map((approver) => (
+                                <option key={approver.id} value={approver.id}>
+                                  {approver.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            Example: If {approvalConfig.hybridPercentage}% of approvers approve OR the selected approver approves → Expense approved.
+                          </p>
+                        </>
+                      )}
 
                       <div>
                         <label className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Manager</label>
@@ -784,6 +910,27 @@ const AdminDashboardPage = () => {
                           />
                           <span className="text-sm text-muted-foreground">%</span>
                         </div>
+                      </div>
+
+                      {/* Save Button and Message */}
+                      <div className="col-span-1 flex flex-col gap-3 lg:col-span-2">
+                        {approvalSaveMessage ? (
+                          <p className={`rounded-md px-3 py-2 text-sm ${
+                            approvalSaveMessage.startsWith('✓')
+                              ? 'bg-green-50 text-green-700'
+                              : 'bg-red-50 text-red-700'
+                          }`}>
+                            {approvalSaveMessage}
+                          </p>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={handleSaveApprovalRule}
+                          disabled={isSavingApprovals}
+                          className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:cursor-pointer hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isSavingApprovals ? 'Saving...' : 'Save Approval Rule'}
+                        </button>
                       </div>
                     </div>
                   </div>

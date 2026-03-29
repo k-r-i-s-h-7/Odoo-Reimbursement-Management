@@ -132,6 +132,9 @@ model ApprovalRule {
   id                  String             @id @default(uuid())
   description         String?            // "Description about rules" input
   
+  // Rule Type: percentage | specific-approver | hybrid
+  ruleType            String             @default("percentage") @map("rule_type")
+  
   // Target User
   targetUserId        String?            @map("target_user_id")
   targetUser          User?              @relation("RuleTargetUser", fields: [targetUserId], references: [id])
@@ -144,6 +147,12 @@ model ApprovalRule {
   isManagerApprover   Boolean            @default(false)
   isSequential        Boolean            @default(false) 
   minimumPercentage   Int?               
+  
+  // Specific Approver Rule: required approver ID
+  specificApproverId  String?            @map("specific_approver_id")
+  
+  // Hybrid Rule: percentage threshold
+  hybridPercentage    Int?               @map("hybrid_percentage")
   
   // Relations
   companyId           String             @map("company_id")
