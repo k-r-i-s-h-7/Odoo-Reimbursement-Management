@@ -1,31 +1,83 @@
 const prisma = require("../../config/db");
-const { hashPassword, comparePassword } = require("../../utils/hash");
+const { hashPassword, comparePassword } = require("../utils/hash");
 const {
   generateAccessToken,
   generateRefreshToken,
-} = require("../../utils/jwt");
+} = require("../utils/jwt");
+
 
 const signup = async (data) => {
-  const hashedPassword = await hashPassword(data.password);
+  const {
+    name,
+    email,
+    password,
+    companyName,
+    country,
+    currency,
+  } = data;
 
-  const user = await prisma.user.create({
+  // 1. Hash password
+  const hashedPassword = await hashPassword(password);
+
+  // 2. Create Company
+  const company = await prisma.company.create({
     data: {
-      name: data.name,
-      email: data.email,
-      passwordHash: hashedPassword,
-      companyId: data.companyId,
-      roleId: data.roleId,
+      name: companyName,
+      country: country,
+      baseCurrency: currency,
     },
   });
 
-  return user;
+  // 3. Get or create default role (Admin)
+  let role = await prisma.role.findFirst({
+    where: { name: "Admin" },
+  });
+
+  if (!role) {
+    role = await prisma.role.create({
+      data: { name: "Admin" },
+    });
+  }
+
+  // 4. Create User
+  const user = await prisma.user.create({
+    data: {
+      name,
+      email,
+      passwordHash: hashedPassword,
+      companyId: company.id,
+      roleId: role.id,
+    },
+  });
+
+  // 5. Generate tokens
+  const accessToken = generateAccessToken(user);
+  const refreshToken = generateRefreshToken(user);
+
+  // 6. Store refresh token
+  // console.log(prisma);
+  // await prisma.refreshToken.create({
+  //   data: {
+  //     userId: user.id,
+  //     token: refreshToken,
+  //     expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+  //   },
+  // });
+
+  return {
+    user,
+    company,
+    accessToken,
+    refreshToken,
+  };
 };
 
 const login = async (email, password) => {
-  const user = await prisma.user.findUnique({
-    where: { email },
-  });
-
+  const user = await prisma.user.findUnique({ where: { email } });
+if (!user) {
+  return res.status(404).json({ error: 'User not found' });
+}
+  
   if (!user) throw new Error("Invalid credentials");
 
   const isValid = await comparePassword(password, user.passwordHash);
@@ -34,13 +86,13 @@ const login = async (email, password) => {
   const accessToken = generateAccessToken(user);
   const refreshToken = generateRefreshToken(user);
 
-  await prisma.refreshToken.create({
-    data: {
-      userId: user.id,
-      token: refreshToken,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    },
-  });
+  // await prisma.refreshToken.create({
+  //   data: {
+  //     userId: user.id,
+  //     token: refreshToken,
+  //     expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+  //   },
+  // });
 
   return { accessToken, refreshToken };
 };

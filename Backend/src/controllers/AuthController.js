@@ -11,10 +11,13 @@ const signup = async (req, res, next) => {
 
 const login = async (req, res, next) => {
   try {
+    console.log("BODY:", req.body);
+    console.log("EMAIL:", req.body?.email);
     const data = await authService.login(
       req.body.email,
       req.body.password
     );
+    
     res.json(data);
   } catch (err) {
     next(err);
