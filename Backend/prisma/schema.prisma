@@ -1,0 +1,191 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum ExpenseStatus {
+  DRAFT               // User hit 'Upload' or saved without submitting
+  WAITING_APPROVAL    // User hit 'Submit'
+  APPROVED            // All required managers/rules passed
+  REJECTED            // A manager rejected it
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ==========================================
+// CORE MODELS
+// ==========================================
+
+model Company {
+  id              String         @id @default(uuid())
+  name            String?
+  country         String         // From Admin Signup dropdown
+  baseCurrency    String         // Auto-set from country (e.g., "INR", "USD")
+  
+  users           User[]
+  rules           ApprovalRule[]
+  
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt      @map("updated_at")
+
+  @@map("companies")
+}
+
+// New Role model to support the role_id Foreign Key
+model Role {
+  id              String         @id @default(uuid())
+  name            String         @unique // e.g., "ADMIN", "MANAGER", "EMPLOYEE"
+  
+  users           User[]
+
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt      @map("updated_at")
+
+  @@map("roles")
+}
+
+model User {
+  // Exact attributes requested mapped to DB schema
+  id              String         @id @default(uuid())
+  companyId       String         @map("company_id")
+  name            String
+  email           String         @unique
+  passwordHash    String         @map("password_hash")
+  roleId          String         @map("role_id")
+  createdAt       DateTime       @default(now()) @map("created_at")
+
+  // Foreign Key Relations
+  company         Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  role            Role           @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  // Self-referencing relationship for Manager Hierarchy
+  managerId       String?        @map("manager_id")
+  manager         User?          @relation("UserToManager", fields: [managerId], references: [id])
+  subordinates    User[]         @relation("UserToManager")
+
+  // Expenses & Approvals mapping (Required by Prisma for reverse relations)
+  expenses           Expense[]          @relation("ExpenseOwner")
+  approvalsNeeded    ApprovalRequest[]  @relation("AssignedApprover")
+  rulesTargetingUser ApprovalRule[]     @relation("RuleTargetUser")
+  rulesWhereManager  ApprovalRule[]     @relation("RuleCustomManager")
+  ruleSteps          ApprovalRuleStep[] @relation("StepApprover")
+
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+// ==========================================
+// EXPENSE MODEL
+// ==========================================
+
+model Expense {
+  id                String         @id @default(uuid())
+  
+  description       String         // Top description field
+  expenseDate       DateTime       // "Expense Date" field
+  category          String         // "Category" field (e.g., "Food")
+  paidBy            String         // "Paid by" dropdown/text
+  remarks           String?        // "Remarks" field
+  detailedNotes     String?        // Second bottom "Description" text area
+  
+  // Multi-Currency Handling
+  submittedAmount   Float          // E.g., 567
+  submittedCurrency String         // E.g., "$" or "USD"
+  baseAmount        Float?         // Auto-converted amount (e.g., 49896)
+  
+  // Receipt Attachment & OCR
+  receiptUrl        String?        // Link to S3/Cloudinary upload
+  
+  // State Tracking
+  status            ExpenseStatus  @default(DRAFT)
+
+  // Relations
+  employeeId        String         @map("employee_id")
+  employee          User           @relation("ExpenseOwner", fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  approvalRequests  ApprovalRequest[]
+
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt      @map("updated_at")
+
+  @@map("expenses")
+}
+
+// ==========================================
+// APPROVAL ENGINE MODELS
+// ==========================================
+
+model ApprovalRule {
+  id                  String             @id @default(uuid())
+  description         String?            // "Description about rules" input
+  
+  // Target User
+  targetUserId        String?            @map("target_user_id")
+  targetUser          User?              @relation("RuleTargetUser", fields: [targetUserId], references: [id])
+  
+  // Manager Override 
+  customManagerId     String?            @map("custom_manager_id")
+  customManager       User?              @relation("RuleCustomManager", fields: [customManagerId], references: [id])
+  
+  // Rule Configuration Checkboxes
+  isManagerApprover   Boolean            @default(false)
+  isSequential        Boolean            @default(false) 
+  minimumPercentage   Int?               
+  
+  // Relations
+  companyId           String             @map("company_id")
+  company             Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  steps               ApprovalRuleStep[]
+
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt      @map("updated_at")
+
+  @@map("approval_rules")
+}
+
+model ApprovalRuleStep {
+  id              String        @id @default(uuid())
+  sequenceOrder   Int           
+  isRequired      Boolean       @default(false) 
+  
+  // Relations
+  ruleId          String        @map("rule_id")
+  rule            ApprovalRule  @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  
+  approverId      String        @map("approver_id")
+  approver        User          @relation("StepApprover", fields: [approverId], references: [id], onDelete: Cascade)
+
+  @@map("approval_rule_steps")
+}
+
+model ApprovalRequest {
+  id              String         @id @default(uuid())
+  status          RequestStatus  @default(PENDING) 
+  sequenceOrder   Int            
+  
+  // Relations
+  expenseId       String         @map("expense_id")
+  expense         Expense        @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  
+  approverId      String         @map("approver_id")
+  approver        User           @relation("AssignedApprover", fields: [approverId], references: [id], onDelete: Cascade)
+
+  actionedAt      DateTime?      @map("actioned_at")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt      @map("updated_at")
+
+  @@map("approval_requests")
+}

@@ -1,0 +1,19 @@
+# Dependency directories
+node_modules/
+
+# Environment variables (CRITICAL FOR SECURITY)
+.env
+.env.*
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Prisma specific (if using local SQLite in the future)
+*.db
+*.db-journal
