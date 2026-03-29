@@ -88,10 +88,14 @@ const SigninPage = () => {
       if (normalizedRole === 'admin') {
         setErrors({})
         navigate('/admin/dashboard')
-      } else {
+      } else if (normalizedRole === 'manager')
+        {
         // If user is not an admin, redirect to a standard user page 
         // or show an error if they shouldn't be here.
-        navigate('/dashboard')
+        navigate('/manager')
+      }
+      else {
+         navigate('/dashboard')
       }
 
     } catch (error) {

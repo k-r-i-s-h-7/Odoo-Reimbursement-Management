@@ -61,4 +61,25 @@ const getUsers = async (req, res) => {
   }
 };
 
-module.exports = { createUser, getUsers };
+const getCompanyProfile = async (req, res) => {
+  try {
+    const company = await prisma.company.findUnique({
+      where: { id: req.user.companyId },
+    });
+
+    if (!company) {
+      return res.status(404).json({ error: "Company not found" });
+    }
+
+    return res.json({
+      name: company.name,
+      country: company.country,
+      baseCurrency: company.baseCurrency,
+      adminEmail: req.user.email, // Best guess for this field if it's missing
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+module.exports = { createUser, getUsers, getCompanyProfile };
