@@ -6,7 +6,17 @@ import SigninPage from './pages/SigninPage'
 import SignupPage from './pages/SignupPage'
 
 const App = () => {
-	return <SignupPage />
+	return (
+		<BrowserRouter>
+			<Routes>
+				<Route path="/" element={<Navigate to="/signup" replace />} />
+				<Route path="/signup" element={<SignupPage />} />
+				<Route path="/signin" element={<SigninPage />} />
+				<Route path="/forgot-password" element={<ForgotPasswordPage />} />
+				<Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+			</Routes>
+		</BrowserRouter>
+	)
 }
 
-export default App;
+export default App
