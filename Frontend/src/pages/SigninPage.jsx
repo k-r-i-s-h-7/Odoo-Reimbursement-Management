@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import SigninForm from '../components/auth/SigninForm'
 
 const initialValues = {
@@ -10,6 +10,7 @@ const initialValues = {
 const SigninPage = () => {
   const [formData, setFormData] = useState(initialValues)
   const [errors, setErrors] = useState({})
+  const navigate = useNavigate()
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -46,6 +47,7 @@ const SigninPage = () => {
 
     alert(`Welcome back, ${formData.email}`)
     setErrors({})
+    navigate('/admin/dashboard')
   }
 
   return (
@@ -57,7 +59,7 @@ const SigninPage = () => {
           <div className="pointer-events-none absolute inset-0 opacity-18 [background-image:linear-gradient(rgba(255,255,255,0.22)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.22)_1px,transparent_1px)] [background-size:28px_28px]" />
           <img
             src="/login.png"
-            alt="Admin signin"
+            alt="Sign in"
             className="relative h-full w-full object-contain object-center drop-shadow-2xl"
             onError={(event) => {
               event.currentTarget.src = '/signup.png'
@@ -68,12 +70,12 @@ const SigninPage = () => {
         <div className="relative flex h-full flex-col justify-center bg-card px-5 py-4 sm:px-7 sm:py-5 lg:px-9">
           <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-px bg-border lg:block" />
           <div className="mb-5">
-            <p className="text-xs font-extrabold uppercase tracking-[0.15em] text-primary">Admin Portal</p>
+            <p className="text-xs font-extrabold uppercase tracking-[0.15em] text-primary">Welcome Back</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-card-foreground sm:text-4xl">
               Sign in to your account
             </h1>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Access reimbursements dashboard with secure admin credentials.
+              Access your reimbursement dashboard with your account credentials.
             </p>
           </div>
 
