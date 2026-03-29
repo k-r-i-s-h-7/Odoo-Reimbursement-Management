@@ -2,13 +2,16 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import SignupForm from '../components/auth/SignupForm'
 import { getCountriesWithCurrency, getUsdRateForCurrency } from '../services/countryCurrencyService'
+import { apiFetch } from '../services/apiClient'
 import { validateSignupForm } from '../utils/signupFormValidation'
 
+// 1. Added companyName to match backend requirements
 const initialValues = {
   name: '',
   email: '',
   password: '',
   confirmPassword: '',
+  companyName: '', 
   country: '',
 }
 
@@ -20,6 +23,7 @@ const SignupPage = () => {
   const [isCountriesLoading, setIsCountriesLoading] = useState(true)
   const [usdRate, setUsdRate] = useState(null)
   const [isRateLoading, setIsRateLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false) // Added submitting state
 
   useEffect(() => {
     let active = true
@@ -99,7 +103,8 @@ const SignupPage = () => {
     }
   }
 
-  const handleSubmit = (event) => {
+  // 2. Updated handleSubmit to call backend API
+  const handleSubmit = async (event) => {
     event.preventDefault()
 
     const nextErrors = validateSignupForm(formData)
@@ -108,10 +113,36 @@ const SignupPage = () => {
       return
     }
 
-    setFormData(initialValues)
-    setErrors({})
-    setUsdRate(null)
-    navigate('/admin/dashboard')
+    setIsSubmitting(true)
+    setErrors({}) // Clear previous generic errors
+
+    try {
+      const data = await apiFetch('/auth/signup', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          companyName: formData.companyName || formData.name,
+          country: formData.country,
+          currency: selectedCountry?.currencyCode || 'USD',
+        }),
+      })
+
+      // 3. Store the generated JWT tokens
+      if (data.accessToken) localStorage.setItem('accessToken', data.accessToken)
+      if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken)
+
+      setFormData(initialValues)
+      setErrors({})
+      setUsdRate(null)
+      navigate('/admin/dashboard')
+    } catch (error) {
+      console.error('Signup error:', error)
+      setErrors({ submit: error.message || 'A network error occurred. Please try again later.' })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -142,6 +173,13 @@ const SignupPage = () => {
             </p>
           </div>
 
+          {/* Render backend errors if they exist */}
+          {errors.submit && (
+            <div className="mb-4 rounded border border-red-500 bg-red-50 p-3 text-sm text-red-600">
+              {errors.submit}
+            </div>
+          )}
+
           <SignupForm
             formData={formData}
             errors={errors}
@@ -152,6 +190,7 @@ const SignupPage = () => {
             isRateLoading={isRateLoading}
             onChange={handleChange}
             onSubmit={handleSubmit}
+            isSubmitting={isSubmitting} // Passed down to disable button
           />
 
           <p className="mt-4 text-sm text-muted-foreground">

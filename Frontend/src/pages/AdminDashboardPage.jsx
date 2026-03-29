@@ -13,6 +13,15 @@ const createId = () =>
     ? crypto.randomUUID()
     : `id-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
 
+// Helper to get Auth Headers
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('accessToken')
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  }
+}
+
 const UserPlusIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4" aria-hidden="true">
     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
@@ -61,18 +70,16 @@ const AdminDashboardPage = () => {
   const [selectedUserId, setSelectedUserId] = useState('')
   const [approvalsByUser, setApprovalsByUser] = useState({})
   const [approverToAddId, setApproverToAddId] = useState('')
-  const [isSavingApprovals, setIsSavingApprovals] = useState(false)
-  const [approvalSaveMessage, setApprovalSaveMessage] = useState('')
+  const [sendingPasswordFor, setSendingPasswordFor] = useState(null)
 
   const [company, setCompany] = useState({
-    name: '',
+    name: localStorage.getItem('companyName') || '',
     email: '',
     country: '',
     baseCurrency: '',
   })
 
   const [users, setUsers] = useState([])
-
   const [createForm, setCreateForm] = useState(initialCreateForm)
 
   useEffect(() => {
@@ -80,26 +87,37 @@ const AdminDashboardPage = () => {
 
     const loadCompany = async () => {
       try {
-        const response = await fetch('/api/admin/company-profile')
-        if (!response.ok) return
+        const response = await fetch('http://localhost:5000/api/', {
+          headers: getAuthHeaders(),
+        })
+        if (!response.ok) {
+          if (response.status === 401) navigate('/signin')
+          return
+        }
 
         const data = await response.json()
         if (!isMounted) return
 
         setCompany({
-          name: data?.name ?? '',
+          name: data?.name ?? localStorage.getItem('companyName') ?? '',
           email: data?.email ?? data?.adminEmail ?? '',
           country: data?.country ?? '',
           baseCurrency: data?.baseCurrency ?? '',
         })
-      } catch {
-        // Keep empty values until backend integration is available.
+        
+        if (data?.name) {
+          localStorage.setItem('companyName', data.name)
+        }
+      } catch (err) {
+        console.error("Failed to load company:", err)
       }
     }
 
     const loadUsers = async () => {
       try {
-        const response = await fetch('/api/admin/users')
+        const response = await fetch('http://localhost:5000/api/admin/users', {
+          headers: getAuthHeaders(),
+        })
         if (!response.ok) return
 
         const data = await response.json()
@@ -114,8 +132,8 @@ const AdminDashboardPage = () => {
             managerId: user?.managerId ?? null,
           })),
         )
-      } catch {
-        // Keep empty values until backend integration is available.
+      } catch (err) {
+        console.error("Failed to load users:", err)
       }
     }
 
@@ -125,8 +143,14 @@ const AdminDashboardPage = () => {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [navigate])
 
+  const handleLogout = () => {
+    localStorage.clear()
+    navigate('/signin')
+  }
+
+  // Memoized logic
   const managers = useMemo(() => users.filter((user) => user.role === 'MANAGER'), [users])
 
   const usersWithManagerName = useMemo(
@@ -173,6 +197,7 @@ const AdminDashboardPage = () => {
     'h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-ring/70'
   const panelClass = 'rounded-xl border border-border bg-card p-5 shadow-sm'
 
+  // Form Handlers
   const handleCreateUser = async (event) => {
     event.preventDefault()
     setSubmitMessage('')
@@ -192,9 +217,9 @@ const AdminDashboardPage = () => {
     }
 
     try {
-      const response = await fetch('/api/admin/users', {
+      const response = await fetch('http://localhost:5000/api/admin/users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(payload),
       })
 
@@ -210,16 +235,16 @@ const AdminDashboardPage = () => {
           },
           ...prev,
         ])
-
         setCreateForm(initialCreateForm)
         setShowCreateDrawer(false)
         setSubmitMessage('User created and reset password link sent.')
         return
       }
-    } catch {
-      // Fallback below keeps the UI testable before backend is wired.
+    } catch (err) {
+        console.error("Create user failed:", err)
     }
 
+    // Local-only Fallback
     setUsers((prev) => [
       {
         id: createId(),
@@ -230,10 +255,35 @@ const AdminDashboardPage = () => {
       },
       ...prev,
     ])
-
     setCreateForm(initialCreateForm)
     setShowCreateDrawer(false)
-    setSubmitMessage('User created in local mode and reset email queued.')
+    setSubmitMessage('User created in local mode (API unreachable).')
+  }
+
+  const handleSendPassword = async (user, event) => {
+    event.stopPropagation()
+    setSendingPasswordFor(user.id)
+    setSubmitMessage('')
+
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/send-password', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ userId: user.id }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setSubmitMessage(`✓ Temporary password sent to ${user.email}`)
+      } else {
+        setSubmitMessage(`✗ Failed to send password: ${data.error || data.message || 'Unknown error'}`)
+      }
+    } catch {
+      setSubmitMessage('✗ Network error while sending password. Please try again.')
+    } finally {
+      setSendingPasswordFor(null)
+    }
   }
 
   const openApprovalsForUser = (user) => {
@@ -247,14 +297,11 @@ const AdminDashboardPage = () => {
 
   const updateApprovalConfig = (patch) => {
     if (!selectedUserId || !selectedUser) return
-
     setApprovalsByUser((prev) => {
       const previous = prev[selectedUserId] ?? createDefaultApprovalConfig(selectedUser)
       const next = typeof patch === 'function' ? patch(previous) : { ...previous, ...patch }
-
       const uniqueApproverIds = [...new Set(next.approverIds ?? [])]
       const normalizedRequired = (next.requiredApproverIds ?? []).filter((id) => uniqueApproverIds.includes(id))
-
       return {
         ...prev,
         [selectedUserId]: {
@@ -268,18 +315,15 @@ const AdminDashboardPage = () => {
 
   const toggleRequiredApprover = (approverId) => {
     if (!approvalConfig) return
-
     const exists = approvalConfig.requiredApproverIds.includes(approverId)
     const next = exists
       ? approvalConfig.requiredApproverIds.filter((id) => id !== approverId)
       : [...approvalConfig.requiredApproverIds, approverId]
-
     updateApprovalConfig({ requiredApproverIds: next })
   }
 
   const addApprover = (approverId) => {
     if (!approverId) return
-
     updateApprovalConfig((current) => {
       if ((current.approverIds ?? []).includes(approverId)) return current
       return {
@@ -314,46 +358,9 @@ const AdminDashboardPage = () => {
     })
   }
 
-  const handleSaveApprovalRule = async () => {
-    if (!selectedUserId || !approvalConfig) {
-      setApprovalSaveMessage('Please select a user and configure the approval rule.')
-      return
-    }
-
-    setIsSavingApprovals(true)
-    setApprovalSaveMessage('')
-
-    try {
-      const payload = {
-        userId: selectedUserId,
-        ruleConfig: approvalConfig,
-      }
-
-      const response = await fetch('/api/admin/approval-rules', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-
-      if (response.ok) {
-        const result = await response.json()
-        setApprovalSaveMessage('✓ Approval rule saved successfully!')
-        setTimeout(() => setApprovalSaveMessage(''), 3000)
-        console.log('[Frontend] Approval rule saved:', result)
-      } else {
-        const error = await response.json()
-        setApprovalSaveMessage(`✗ Error: ${error.message || 'Failed to save approval rule'}`)
-      }
-    } catch (err) {
-      console.error('[Frontend] Error saving approval rule:', err)
-      setApprovalSaveMessage('✗ Error: Failed to save approval rule. Please try again.')
-    } finally {
-      setIsSavingApprovals(false)
-    }
-  }
-
   return (
     <main className="flex h-screen overflow-hidden bg-background text-foreground">
+      {/* Sidebar */}
       <aside
         className={`relative flex h-full flex-col border-r border-border bg-card transition-all duration-300 ${
           isCollapsed ? 'w-20' : 'w-80'
@@ -370,14 +377,14 @@ const AdminDashboardPage = () => {
               {company.name || 'Loading company...'}
             </h1>
             <p className={`truncate text-xs text-muted-foreground ${isCollapsed ? 'hidden' : 'block'}`}>
-              {company.email || 'Loading email...'}
+              {company.email || 'Admin Portal'}
             </p>
           </button>
 
-          {showCompanyCard && !isCollapsed ? (
+          {showCompanyCard && !isCollapsed && (
             <div className="absolute left-4 top-20 z-20 w-64 rounded-lg border border-border bg-popover p-3 shadow-lg">
               <p className="text-xs uppercase tracking-widest text-muted-foreground">Company Details</p>
-              <p className="mt-2 text-sm font-semibold">{company.name || '-'}</p>
+              <p className="mt-2 text-sm font-semibold">{company.name || 'Not set'}</p>
               <p className="text-sm text-muted-foreground">{company.email || '-'}</p>
               <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                 <div className="rounded-md bg-muted/50 px-2 py-1">
@@ -390,13 +397,12 @@ const AdminDashboardPage = () => {
                 </div>
               </div>
             </div>
-          ) : null}
+          )}
 
           <button
             type="button"
             onClick={() => setIsCollapsed((prev) => !prev)}
-            className="rounded-md border border-border px-2 py-1 text-xs font-semibold hover:cursor-pointer hover:bg-muted"
-            aria-label="Toggle sidebar"
+            className="rounded-md border border-border px-2 py-1 text-xs font-semibold hover:bg-muted"
           >
             {isCollapsed ? '>' : '<'}
           </button>
@@ -407,17 +413,13 @@ const AdminDashboardPage = () => {
             <button
               key={item.key}
               type="button"
-              onClick={() => {
-                if (item.disabled) return
-                setActiveTab(item.key)
-              }}
+              onClick={() => !item.disabled && setActiveTab(item.key)}
               disabled={item.disabled}
               className={`flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium transition hover:cursor-pointer ${
                 activeTab === item.key
                   ? 'bg-primary text-primary-foreground'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-              } ${item.disabled ? 'cursor-not-allowed opacity-45 hover:bg-transparent hover:text-muted-foreground' : ''}
-              `}
+              } ${item.disabled ? 'cursor-not-allowed opacity-45' : ''}`}
             >
               <span className={isCollapsed ? 'mx-auto block' : 'mr-2'}>{item.icon}</span>
               <span className={isCollapsed ? 'hidden' : 'block'}>{item.label}</span>
@@ -428,8 +430,8 @@ const AdminDashboardPage = () => {
         <div className="mt-auto border-t border-border px-3 py-4">
           <button
             type="button"
-            onClick={() => navigate('/signin')}
-            className="inline-flex h-10 w-full items-center justify-center rounded-md bg-red-600 px-3 text-sm font-semibold text-white transition hover:cursor-pointer hover:bg-red-500"
+            onClick={handleLogout}
+            className="inline-flex h-10 w-full items-center justify-center rounded-md bg-red-600 px-3 text-sm font-semibold text-white transition hover:bg-red-500"
           >
             <span className={isCollapsed ? 'mx-auto block' : 'mr-2 block'}>
               <LogoutIcon />
@@ -439,100 +441,76 @@ const AdminDashboardPage = () => {
         </div>
       </aside>
 
+      {/* Main Content */}
       <section className="h-full flex-1 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
         <header className="mb-5 flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.15em] text-primary">Admin Functions</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.15em] text-primary">{company.name}</p>
             <h2 className="mt-1 text-2xl font-bold">
               {activeTab === 'approvals' ? 'Approvals' : 'Create Users and Managers'}
             </h2>
-            {activeTab === 'approvals' && selectedUser ? (
+            {activeTab === 'approvals' && selectedUser && (
               <p className="mt-1 text-sm text-muted-foreground">User: {selectedUser.name}</p>
-            ) : null}
+            )}
           </div>
-          {activeTab === 'create-users-managers' ? (
+          {activeTab === 'create-users-managers' && (
             <button
               type="button"
               onClick={() => setShowCreateDrawer((prev) => !prev)}
-              className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:cursor-pointer hover:opacity-90"
+              className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
             >
               New +
             </button>
-          ) : null}
+          )}
         </header>
 
         {activeTab === 'create-users-managers' ? (
           <section className={panelClass}>
-            <h3 className="mb-4 text-lg font-semibold">Create Employees & Managers</h3>
+            <h3 className="mb-4 text-lg font-semibold">Manage Staff</h3>
 
-            {showCreateDrawer ? (
+            {showCreateDrawer && (
               <form onSubmit={handleCreateUser} className="mb-5 grid gap-3 rounded-lg border border-border bg-muted/30 p-4 lg:grid-cols-2">
                 <select
                   className={inputClass}
                   value={createForm.userType}
-                  onChange={(event) =>
-                    setCreateForm((prev) => ({
-                      ...prev,
-                      userType: event.target.value,
-                      managerId: event.target.value === 'MANAGER' ? '' : prev.managerId,
-                    }))
-                  }
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, userType: e.target.value, managerId: e.target.value === 'MANAGER' ? '' : prev.managerId }))}
                 >
                   <option value="EMPLOYEE">Employee</option>
                   <option value="MANAGER">Manager</option>
                 </select>
-
                 <input
                   className={inputClass}
                   placeholder="Full Name"
                   value={createForm.name}
-                  onChange={(event) => setCreateForm((prev) => ({ ...prev, name: event.target.value }))}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, name: e.target.value }))}
                 />
-
                 <input
                   className={inputClass}
                   placeholder="Work Email"
                   value={createForm.email}
-                  onChange={(event) => setCreateForm((prev) => ({ ...prev, email: event.target.value }))}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, email: e.target.value }))}
                 />
-
                 <select
                   className={inputClass}
                   value={createForm.managerId}
-                  onChange={(event) =>
-                    setCreateForm((prev) => ({ ...prev, managerId: event.target.value }))
-                  }
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, managerId: e.target.value }))}
                   disabled={createForm.userType === 'MANAGER'}
                 >
                   <option value="">Assign Manager</option>
-                  {managers.map((manager) => (
-                    <option key={manager.id} value={manager.id}>
-                      {manager.name}
-                    </option>
-                  ))}
+                  {managers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
-
                 <div className="flex items-center gap-2 lg:col-span-2">
-                  <button
-                    type="submit"
-                    className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:cursor-pointer hover:opacity-90"
-                  >
-                    Create & Send Reset Link
+                  <button type="submit" className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground">
+                    Create User
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowCreateDrawer(false)}
-                    className="inline-flex h-10 items-center justify-center rounded-md border border-border px-4 text-sm font-semibold transition hover:cursor-pointer hover:bg-muted"
-                  >
+                  <button type="button" onClick={() => setShowCreateDrawer(false)} className="inline-flex h-10 items-center justify-center rounded-md border border-border px-4 text-sm font-semibold">
                     Cancel
                   </button>
                 </div>
               </form>
-            ) : null}
+            )}
 
-            {submitMessage ? (
-              <p className="mb-4 rounded-md bg-muted/40 px-3 py-2 text-sm text-muted-foreground">{submitMessage}</p>
-            ) : null}
+            {submitMessage && <p className="mb-4 rounded-md bg-muted/40 px-3 py-2 text-sm text-muted-foreground">{submitMessage}</p>}
 
             <div className="mt-5 overflow-x-auto">
               <table className="w-full min-w-175 border-collapse text-sm">
@@ -542,6 +520,7 @@ const AdminDashboardPage = () => {
                     <th className="px-3 py-2">Role</th>
                     <th className="px-3 py-2">Manager</th>
                     <th className="px-3 py-2">Email</th>
+                    <th className="px-3 py-2">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -555,36 +534,52 @@ const AdminDashboardPage = () => {
                       <td className="px-3 py-2">{user.role}</td>
                       <td className="px-3 py-2">{user.managerName}</td>
                       <td className="px-3 py-2">{user.email}</td>
+                      <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          id={`send-password-${user.id}`}
+                          disabled={sendingPasswordFor === user.id}
+                          onClick={(e) => handleSendPassword(user, e)}
+                          className="inline-flex h-8 items-center justify-center rounded-md border border-primary px-3 text-xs font-semibold text-primary transition hover:bg-primary hover:text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {sendingPasswordFor === user.id ? (
+                            <span className="flex items-center gap-1.5">
+                              <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                              </svg>
+                              Sending…
+                            </span>
+                          ) : (
+                            'Send Password'
+                          )}
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           </section>
-        ) : null}
-
-        {activeTab === 'approvals' ? (
+        ) : (
+          /* Approvals Tab Section */
           <section className={`${panelClass} space-y-6`}>
             {!selectedUser || !approvalConfig ? (
               <p className="rounded-md bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                Select a user from Create Employees & Managers to configure approvals.
+                Select a user to configure approval rules.
               </p>
             ) : (
               <>
                 {selectedUser.role === 'MANAGER' ? (
                   <div className="max-w-xl space-y-4">
-                    <div>
-                      <label className="text-xs uppercase tracking-[0.08em] text-muted-foreground">User</label>
-                      <input className={`${inputClass} mt-1`} value={selectedUser.name} readOnly />
-                    </div>
-
+                    <label className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Manager Approval Permission</label>
                     <div className="flex items-center justify-between rounded-md border border-border px-3 py-3">
-                      <p className="text-sm font-medium">Is this manager an approver?</p>
+                      <p className="text-sm font-medium">Allow {selectedUser.name} to approve expenses?</p>
                       <input
                         type="checkbox"
                         className="h-5 w-5"
                         checked={approvalConfig.isSelfApprover}
-                        onChange={(event) => updateApprovalConfig({ isSelfApprover: event.target.checked })}
+                        onChange={(e) => updateApprovalConfig({ isSelfApprover: e.target.checked })}
                       />
                     </div>
                   </div>
@@ -597,319 +592,53 @@ const AdminDashboardPage = () => {
                       </div>
 
                       <div>
-                        <label className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Approval Rule Type</label>
-                        <select
+                        <label className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Approval Rule</label>
+                        <input
                           className={`${inputClass} mt-1`}
-                          value={approvalConfig.ruleType}
-                          onChange={(event) => updateApprovalConfig({ ruleType: event.target.value })}
-                        >
-                          <option value="percentage">Percentage Rule (e.g., 60% of approvers)</option>
-                          <option value="specific-approver">Specific Approver Rule (e.g., CFO approves)</option>
-                          <option value="hybrid">Hybrid Rule (Percentage OR Specific Approver)</option>
-                        </select>
+                          placeholder="Approval rule for miscellaneous expenses"
+                          value={approvalConfig.ruleTitle}
+                          onChange={(event) => updateApprovalConfig({ ruleTitle: event.target.value })}
+                        />
                       </div>
 
-                      {/* Rule-Specific Configuration */}
-                      {approvalConfig.ruleType === 'percentage' && (
-                        <div>
-                          <label className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Minimum Approval Percentage</label>
-                          <div className="mt-1 flex items-center gap-2">
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              className={inputClass}
-                              value={approvalConfig.minimumApprovalPercentage}
-                              onChange={(event) => updateApprovalConfig({ minimumApprovalPercentage: event.target.value })}
-                            />
-                            <span className="text-sm text-muted-foreground">%</span>
-                          </div>
-                          <p className="mt-2 text-xs text-muted-foreground">
-                            Example: If set to 60%, expense is approved when 60% of all approvers approve.
-                          </p>
-                        </div>
-                      )}
-
-                      {approvalConfig.ruleType === 'specific-approver' && (
-                        <div>
-                          <label className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Required Approver (e.g., CFO)</label>
-                          <select
-                            className={`${inputClass} mt-1`}
-                            value={approvalConfig.specificApproverId ?? ''}
-                            onChange={(event) => updateApprovalConfig({ specificApproverId: event.target.value })}
-                          >
-                            <option value="">Select required approver</option>
-                            {availableApprovers.map((approver) => (
-                              <option key={approver.id} value={approver.id}>
-                                {approver.name}
-                              </option>
-                            ))}
-                          </select>
-                          <p className="mt-2 text-xs text-muted-foreground">
-                            Example: If you select "CFO", the expense is auto-approved when the CFO approves, regardless of other approvers.
-                          </p>
-                        </div>
-                      )}
-
-                      {approvalConfig.ruleType === 'hybrid' && (
-                        <>
-                          <div>
-                            <label className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Hybrid: Percentage Threshold</label>
-                            <div className="mt-1 flex items-center gap-2">
-                              <input
-                                type="number"
-                                min="0"
-                                max="100"
-                                className={inputClass}
-                                value={approvalConfig.hybridPercentage}
-                                onChange={(event) => updateApprovalConfig({ hybridPercentage: event.target.value })}
-                              />
-                              <span className="text-sm text-muted-foreground">%</span>
-                            </div>
-                          </div>
-
-                          <div>
-                            <label className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Hybrid: Required Approver</label>
-                            <select
-                              className={`${inputClass} mt-1`}
-                              value={approvalConfig.specificApproverId ?? ''}
-                              onChange={(event) => updateApprovalConfig({ specificApproverId: event.target.value })}
-                            >
-                              <option value="">Select approver</option>
-                              {availableApprovers.map((approver) => (
-                                <option key={approver.id} value={approver.id}>
-                                  {approver.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <p className="mt-2 text-xs text-muted-foreground">
-                            Example: If {approvalConfig.hybridPercentage}% of approvers approve OR the selected approver approves → Expense approved.
-                          </p>
-                        </>
-                      )}
-
                       <div>
-                        <label className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Manager</label>
-                        <div className="mt-1 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+                        <label className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Direct Manager</label>
+                        <div className="mt-1 flex gap-2">
                           <select
                             className={inputClass}
                             value={approvalConfig.approvalManagerId ?? ''}
-                            onChange={(event) => {
-                              const nextManagerId = event.target.value
-                              const previousManagerId = approvalConfig.approvalManagerId
-
-                              updateApprovalConfig((current) => {
-                                const nextApproverIds = (current.approverIds ?? []).filter((id) => id !== previousManagerId)
-                                const nextRequiredIds = (current.requiredApproverIds ?? []).filter((id) => id !== previousManagerId)
-
-                                if (current.isManagerApprover && nextManagerId) {
-                                  nextApproverIds.unshift(nextManagerId)
-                                  nextRequiredIds.unshift(nextManagerId)
-                                }
-
-                                return {
-                                  ...current,
-                                  approvalManagerId: nextManagerId,
-                                  approverIds: [...new Set(nextApproverIds)],
-                                  requiredApproverIds: [...new Set(nextRequiredIds)],
-                                }
-                              })
-                            }}
+                            onChange={(e) => updateApprovalConfig({ approvalManagerId: e.target.value })}
                           >
                             <option value="">Select manager</option>
-                            {managers.map((manager) => (
-                              <option key={manager.id} value={manager.id}>
-                                {manager.name}
-                              </option>
-                            ))}
+                            {managers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                           </select>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (!approvalConfig.approvalManagerId) return
-                              addApprover(approvalConfig.approvalManagerId)
-                            }}
-                            className="inline-flex h-10 items-center justify-center rounded-md border border-border px-3 text-sm font-semibold transition hover:bg-muted"
-                          >
-                            Add
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (!approvalConfig.approvalManagerId) return
-                              removeApprover(approvalConfig.approvalManagerId)
-                            }}
-                            className="inline-flex h-10 items-center justify-center rounded-md border border-border px-3 text-sm font-semibold transition hover:bg-muted"
-                          >
-                            Remove
-                          </button>
                         </div>
                       </div>
                     </div>
 
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between rounded-md border border-border px-3 py-3">
-                        <p className="text-sm font-medium">Is manager an approver?</p>
-                        <input
-                          type="checkbox"
-                          className="h-5 w-5"
-                          checked={approvalConfig.isManagerApprover}
-                          onChange={(event) => {
-                            const checked = event.target.checked
-
-                            updateApprovalConfig((current) => {
-                              if (!current.approvalManagerId) {
-                                return {
-                                  ...current,
-                                  isManagerApprover: checked,
-                                }
-                              }
-
-                              if (checked) {
-                                return {
-                                  ...current,
-                                  isManagerApprover: true,
-                                  approverIds: [...new Set([current.approvalManagerId, ...(current.approverIds ?? [])])],
-                                  requiredApproverIds: [...new Set([current.approvalManagerId, ...(current.requiredApproverIds ?? [])])],
-                                }
-                              }
-
-                              return {
-                                ...current,
-                                isManagerApprover: false,
-                                approverIds: (current.approverIds ?? []).filter((id) => id !== current.approvalManagerId),
-                                requiredApproverIds: (current.requiredApproverIds ?? []).filter((id) => id !== current.approvalManagerId),
-                              }
-                            })
-                          }}
-                        />
-                      </div>
-
                       <div className="rounded-lg border border-border p-3">
-                        <label className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Add Approver</label>
+                        <label className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Add Additional Approver</label>
                         <div className="mt-2 flex gap-2">
-                          <select
-                            className={inputClass}
-                            value={approverToAddId}
-                            onChange={(event) => setApproverToAddId(event.target.value)}
-                          >
+                          <select className={inputClass} value={approverToAddId} onChange={(e) => setApproverToAddId(e.target.value)}>
                             <option value="">Select user</option>
-                            {availableApprovers.map((candidate) => (
-                              <option key={candidate.id} value={candidate.id}>
-                                {candidate.name}
-                              </option>
-                            ))}
+                            {availableApprovers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                           </select>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              addApprover(approverToAddId)
-                              setApproverToAddId('')
-                            }}
-                            className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
-                          >
-                            Add
-                          </button>
+                          <button onClick={() => { addApprover(approverToAddId); setApproverToAddId(''); }} className="bg-primary text-primary-foreground px-3 rounded-md text-sm font-semibold">Add</button>
                         </div>
                       </div>
 
-                      <div className="rounded-lg border border-border">
-                        <div className="grid grid-cols-[36px_1fr_auto_auto] border-b border-border px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                          <p>#</p>
-                          <p>User</p>
-                          <p>Required</p>
-                          <p>Actions</p>
-                        </div>
-
-                        <div className="divide-y divide-border">
-                          {approverUsers.map((candidate, index) => (
-                            <div key={candidate.id} className="grid grid-cols-[36px_1fr_auto_auto] items-center gap-2 px-3 py-2 text-sm">
-                              <p>{index + 1}</p>
-                              <p>{candidate.name}</p>
-                              <input
-                                type="checkbox"
-                                className="h-5 w-5"
-                                checked={approvalConfig.requiredApproverIds.includes(candidate.id)}
-                                onChange={() => toggleRequiredApprover(candidate.id)}
-                              />
-                              <div className="flex items-center gap-1">
-                                {approvalConfig.approversSequence ? (
-                                  <>
-                                    <button
-                                      type="button"
-                                      onClick={() => moveApprover(candidate.id, 'up')}
-                                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-xs hover:bg-muted"
-                                      title="Move up"
-                                    >
-                                      ^
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => moveApprover(candidate.id, 'down')}
-                                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-xs hover:bg-muted"
-                                      title="Move down"
-                                    >
-                                      v
-                                    </button>
-                                  </>
-                                ) : null}
-                                <button
-                                  type="button"
-                                  onClick={() => removeApprover(candidate.id)}
-                                  className="inline-flex h-8 items-center justify-center rounded-md border border-border px-2 text-xs hover:bg-muted"
-                                >
-                                  Remove
-                                </button>
-                              </div>
+                      <div className="rounded-lg border border-border divide-y divide-border">
+                        {approverUsers.map((c, index) => (
+                          <div key={c.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                            <span>{index + 1}. {c.name}</span>
+                            <div className="flex items-center gap-2">
+                              <label className="text-xs">Required</label>
+                              <input type="checkbox" checked={approvalConfig.requiredApproverIds.includes(c.id)} onChange={() => toggleRequiredApprover(c.id)} />
+                              <button onClick={() => removeApprover(c.id)} className="text-red-500 text-xs ml-2">Remove</button>
                             </div>
-                          ))}
-
-                          {approverUsers.length === 0 ? (
-                            <p className="px-3 py-3 text-sm text-muted-foreground">No approvers added yet.</p>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between rounded-md border border-border px-3 py-3">
-                        <p className="text-sm font-medium">Approval Sequence For User</p>
-                        <input
-                          type="checkbox"
-                          className="h-5 w-5"
-                          checked={approvalConfig.approversSequence}
-                          onChange={(event) => updateApprovalConfig({ approversSequence: event.target.checked })}
-                        />
-                      </div>
-
-                      <div className="rounded-md border border-border bg-muted/20 px-3 py-3 text-xs leading-5 text-muted-foreground">
-                        <p>
-                          If this is checked, the sequence above is enforced: request goes to approver 1 first, then approver 2, then
-                          next approvers one by one.
-                        </p>
-                        <p className="mt-2">
-                          If any required approver rejects, the expense request is auto-rejected.
-                        </p>
-                        <p className="mt-2">
-                          If this is not checked, approval requests are sent to all approvers at the same time.
-                        </p>
-                      </div>
-
-                      <div>
-                        <label className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Minimum Approval Percentage</label>
-                        <div className="mt-1 flex items-center gap-2">
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            className={inputClass}
-                            value={approvalConfig.minimumApprovalPercentage}
-                            onChange={(event) => updateApprovalConfig({ minimumApprovalPercentage: event.target.value })}
-                          />
-                          <span className="text-sm text-muted-foreground">%</span>
-                        </div>
+                          </div>
+                        ))}
                       </div>
 
                       {/* Save Button and Message */}
@@ -938,7 +667,7 @@ const AdminDashboardPage = () => {
               </>
             )}
           </section>
-        ) : null}
+        )}
       </section>
     </main>
   )

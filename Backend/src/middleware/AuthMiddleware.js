@@ -9,6 +9,8 @@ const authenticate = (req, res, next) => {
 
   try {
     const decoded = verifyAccessToken(token);
+    console.log("Access token(Undecoded)",token)
+    console.log("Access token of user is",decoded)
     req.user = decoded;
     next();
   } catch (err) {

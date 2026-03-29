@@ -1,425 +1,171 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-const initialApprovals = [
-  {
-    id: "1",
-    description: "Client Lunch",
-    owner: "Sarah",
-    ownerInitials: "S",
-    category: "Food",
-    status: "PENDING",
-    submittedAmount: 567,
-    submittedCurrency: "USD",
-    baseAmount: 49896,
-    baseCurrency: "INR",
-    date: "Jun 12, 2025"
-  },
-  {
-    id: "2",
-    description: "Office Supplies",
-    owner: "John",
-    ownerInitials: "J",
-    category: "Stationery",
-    status: "APPROVED",
-    submittedAmount: 100,
-    submittedCurrency: "USD",
-    baseAmount: 8800,
-    baseCurrency: "INR",
-    date: "Jun 10, 2025"
-  },
-  {
-    id: "3",
-    description: "Team Offsite Travel",
-    owner: "Priya",
-    ownerInitials: "P",
-    category: "Travel",
-    status: "PENDING",
-    submittedAmount: 1200,
-    submittedCurrency: "USD",
-    baseAmount: 105600,
-    baseCurrency: "INR",
-    date: "Jun 14, 2025"
-  },
-  {
-    id: "4",
-    description: "SaaS Subscription",
-    owner: "Mike",
-    ownerInitials: "M",
-    category: "Software",
-    status: "REJECTED",
-    submittedAmount: 49,
-    submittedCurrency: "USD",
-    baseAmount: 4312,
-    baseCurrency: "INR",
-    date: "Jun 8, 2025"
-  }
-];
-
-const categoryColors = {
-  Food: { bg: '#2a1f0e', text: '#f4a535', dot: '#f4a535' },
-  Stationery: { bg: '#0e1a2a', text: '#4da3f5', dot: '#4da3f5' },
-  Travel: { bg: '#1a0e2a', text: '#b46ef5', dot: '#b46ef5' },
-  Software: { bg: '#0e2a1a', text: '#3dd68c', dot: '#3dd68c' },
+const categoryConfig = {
+  Food:       { emoji: '🍽️' },
+  Stationery: { emoji: '📎' },
+  Travel:     { emoji: '✈️' },
+  Software:   { emoji: '💻' },
 };
 
 const statusConfig = {
-  PENDING:  { color: '#f4a535', bg: 'rgba(244,165,53,0.1)',  label: 'Pending'  },
-  APPROVED: { color: '#3dd68c', bg: 'rgba(61,214,140,0.1)', label: 'Approved' },
-  REJECTED: { color: '#f45353', bg: 'rgba(244,83,83,0.1)',  label: 'Rejected' },
+  PENDING:  { label: 'Pending',  cls: 'status-pending'  },
+  APPROVED: { label: 'Approved', cls: 'status-approved' },
+  REJECTED: { label: 'Rejected', cls: 'status-rejected' },
 };
 
-const style = `
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap');
+const css = `
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap');
+
+  :root {
+    --background:           oklch(0.9842 0.0034 247.8575);
+    --foreground:           oklch(0.2795 0.0368 260.0310);
+    --card:                 oklch(1.0000 0 0);
+    --card-foreground:      oklch(0.2795 0.0368 260.0310);
+    --primary:              oklch(0.4346 0.0501 343.6708);
+    --primary-foreground:   oklch(1.0000 0 0);
+    --secondary:            oklch(0.9276 0.0058 264.5313);
+    --secondary-foreground: oklch(0.3729 0.0306 259.7328);
+    --muted:                oklch(0.9670 0.0029 264.5419);
+    --muted-foreground:     oklch(0.5510 0.0234 264.3637);
+    --accent:               oklch(0.9299 0.0334 272.7879);
+    --accent-foreground:    oklch(0.3729 0.0306 259.7328);
+    --destructive:          oklch(0.6368 0.2078 25.3313);
+    --border:               oklch(0.8717 0.0093 258.3382);
+    --ring:                 oklch(0.5854 0.2041 277.1173);
+    --radius:               0.5rem;
+    --font-sans:            'Manrope', sans-serif;
+    --font-mono:            'JetBrains Mono', monospace;
+    --shadow-sm:            0px 4px 8px -1px hsl(0 0% 0% / 0.10), 0px 1px 2px -2px hsl(0 0% 0% / 0.10);
+    --shadow-md:            0px 4px 8px -1px hsl(0 0% 0% / 0.10), 0px 2px 4px -2px hsl(0 0% 0% / 0.10);
+    --success:              oklch(0.55 0.17 145);
+    --success-muted:        oklch(0.94 0.05 145);
+    --success-border:       oklch(0.80 0.09 145);
+    --success-fg:           oklch(0.35 0.12 145);
+    --warning:              oklch(0.72 0.15 72);
+    --warning-muted:        oklch(0.96 0.06 72);
+    --warning-border:       oklch(0.82 0.10 72);
+    --warning-fg:           oklch(0.42 0.10 72);
+    --danger-muted:         oklch(0.96 0.03 25);
+    --danger-border:        oklch(0.84 0.10 25);
+    --danger-fg:            oklch(0.48 0.18 25);
+  }
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  .mgr-root {
-    font-family: 'Syne', sans-serif;
-    background: #0a0a0f;
-    min-height: 100vh;
-    padding: 36px 40px;
-    color: #e8e8f0;
-    position: relative;
-    overflow-x: hidden;
-  }
-
-  .mgr-root::before {
-    content: '';
-    position: fixed;
-    top: -200px; right: -200px;
-    width: 600px; height: 600px;
-    background: radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%);
-    pointer-events: none;
-    z-index: 0;
-  }
-  .mgr-root::after {
-    content: '';
-    position: fixed;
-    bottom: -200px; left: -100px;
-    width: 500px; height: 500px;
-    background: radial-gradient(circle, rgba(244,165,53,0.07) 0%, transparent 70%);
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  .mgr-header {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    margin-bottom: 36px;
-    position: relative;
-    z-index: 1;
-  }
-
-  .mgr-title-group {}
-  .mgr-eyebrow {
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: #6366f1;
-    margin-bottom: 6px;
-  }
-  .mgr-title {
-    font-size: 28px;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    color: #fff;
-  }
-  .mgr-title span { color: #6366f1; }
-
-  .mgr-stats {
-    display: flex;
-    gap: 16px;
-  }
-  .mgr-stat {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.07);
-    border-radius: 12px;
-    padding: 12px 18px;
-    text-align: center;
-    min-width: 80px;
-  }
-  .mgr-stat-num {
-    font-size: 22px;
-    font-weight: 700;
-    color: #fff;
-  }
-  .mgr-stat-label {
-    font-family: 'DM Mono', monospace;
-    font-size: 9px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: #666;
-    margin-top: 2px;
-  }
-  .mgr-stat.pending .mgr-stat-num { color: #f4a535; }
-  .mgr-stat.approved .mgr-stat-num { color: #3dd68c; }
-  .mgr-stat.rejected .mgr-stat-num { color: #f45353; }
-
-  .mgr-card {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.07);
-    border-radius: 20px;
-    overflow: hidden;
-    position: relative;
-    z-index: 1;
-  }
-
-  .mgr-card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20px 28px;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-  }
-  .mgr-card-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: #aaa;
-    letter-spacing: 0.01em;
-  }
-  .mgr-badge {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    background: rgba(99,102,241,0.15);
-    color: #6366f1;
-    border: 1px solid rgba(99,102,241,0.3);
-    border-radius: 20px;
-    padding: 3px 12px;
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-  thead tr {
-    background: rgba(255,255,255,0.02);
-  }
-  th {
-    font-family: 'DM Mono', monospace;
-    font-size: 9.5px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: #555;
-    font-weight: 400;
-    padding: 14px 28px;
-    text-align: left;
-    white-space: nowrap;
-  }
-  tbody tr {
-    border-top: 1px solid rgba(255,255,255,0.045);
-    transition: background 0.15s;
-  }
-  tbody tr:hover {
-    background: rgba(255,255,255,0.03);
-  }
-  td {
-    padding: 18px 28px;
-    vertical-align: middle;
-  }
-
-  .desc-cell {}
-  .desc-name {
-    font-size: 14px;
-    font-weight: 600;
-    color: #e8e8f0;
-  }
-  .desc-date {
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    color: #555;
-    margin-top: 3px;
-  }
-
-  .owner-cell {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .owner-avatar {
-    width: 30px; height: 30px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 12px; font-weight: 700; color: #fff;
-    flex-shrink: 0;
-  }
-  .owner-name { font-size: 13px; font-weight: 500; color: #ccc; }
-
-  .cat-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    border-radius: 20px;
-    padding: 4px 12px;
-    font-size: 11px;
-    font-weight: 600;
-    font-family: 'DM Mono', monospace;
-  }
-  .cat-dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-
-  .status-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    border-radius: 6px;
-    padding: 4px 10px;
-    font-size: 11px;
-    font-weight: 600;
-    font-family: 'DM Mono', monospace;
-    letter-spacing: 0.06em;
-  }
-  .status-dot {
-    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
-    animation: pulse 2s infinite;
-  }
-  .status-dot.pending { animation: pulse 2s infinite; }
-  .status-dot.approved, .status-dot.rejected { animation: none; }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.5; transform: scale(0.8); }
-  }
-
-  .amount-cell {}
-  .amount-submitted {
-    font-family: 'DM Mono', monospace;
-    font-size: 13px;
-    font-weight: 500;
-    color: #e8e8f0;
-  }
-  .amount-converted {
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    color: #555;
-    margin-top: 3px;
-  }
-  .amount-arrow { color: #444; margin: 0 4px; }
-
-  .actions-cell {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    border: none;
-    border-radius: 8px;
-    padding: 7px 14px;
-    font-family: 'Syne', sans-serif;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.18s;
-    letter-spacing: 0.01em;
-  }
-  .btn-approve {
-    background: rgba(61,214,140,0.12);
-    color: #3dd68c;
-    border: 1px solid rgba(61,214,140,0.25);
-  }
-  .btn-approve:hover {
-    background: rgba(61,214,140,0.22);
-    border-color: rgba(61,214,140,0.5);
-    transform: translateY(-1px);
-  }
-  .btn-reject {
-    background: rgba(244,83,83,0.1);
-    color: #f45353;
-    border: 1px solid rgba(244,83,83,0.2);
-  }
-  .btn-reject:hover {
-    background: rgba(244,83,83,0.2);
-    border-color: rgba(244,83,83,0.45);
-    transform: translateY(-1px);
-  }
-  .readonly-tag {
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    color: #444;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-
-  .toast {
-    position: fixed;
-    bottom: 28px; right: 28px;
-    background: #1a1a24;
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 12px;
-    padding: 14px 20px;
-    font-size: 13px;
-    font-weight: 500;
-    color: #e8e8f0;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    z-index: 9999;
-    animation: slideIn 0.3s ease;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
-  }
+  .mgr-wrap { font-family: var(--font-sans); background: var(--background); color: var(--foreground); min-height: 100vh; padding: 40px 48px; }
+  .mgr-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; flex-wrap: wrap; margin-bottom: 28px; }
+  .mgr-eyebrow { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted-foreground); margin-bottom: 5px; }
+  .mgr-title { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
+  .mgr-title-accent { color: var(--primary); }
+  .mgr-stats { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .stat-chip { display: flex; align-items: center; gap: 7px; background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 7px 14px; box-shadow: var(--shadow-sm); }
+  .stat-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .stat-dot.pending  { background: var(--warning); animation: blink 1.8s infinite; }
+  .stat-num   { font-size: 14px; font-weight: 700; }
+  .stat-label { font-family: var(--font-mono); font-size: 10px; color: var(--muted-foreground); }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+  .mgr-card { background: var(--card); border: 1px solid var(--border); border-radius: calc(var(--radius) * 2); box-shadow: var(--shadow-md); overflow: hidden; }
+  .mgr-card-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; background: var(--muted); border-bottom: 1px solid var(--border); }
+  .mgr-card-title { font-size: 13px; font-weight: 600; }
+  .mgr-count-badge { font-family: var(--font-mono); font-size: 10px; background: var(--accent); color: var(--accent-foreground); border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead { background: var(--muted); }
+  th { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted-foreground); font-weight: 400; padding: 11px 24px; text-align: left; border-bottom: 1px solid var(--border); }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.12s; }
+  tbody tr:hover { background: var(--muted); }
+  td { padding: 15px 24px; vertical-align: middle; font-size: 13px; }
+  .desc-title { font-weight: 600; color: var(--foreground); }
+  .desc-date  { font-family: var(--font-mono); font-size: 10px; color: var(--muted-foreground); margin-top: 2px; }
+  .owner-wrap { display: flex; align-items: center; gap: 9px; }
+  .owner-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--accent-foreground); flex-shrink: 0; }
+  .owner-name { font-size: 13px; font-weight: 500; }
+  .cat-pill { display: inline-flex; align-items: center; gap: 5px; background: var(--secondary); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; font-size: 11px; font-weight: 600; color: var(--secondary-foreground); white-space: nowrap; }
+  .status-pill { display: inline-flex; align-items: center; gap: 5px; border-radius: var(--radius); padding: 3px 9px; font-family: var(--font-mono); font-size: 10px; font-weight: 500; letter-spacing: 0.06em; border: 1px solid; }
+  .status-pill .sdot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+  .status-pending  { background: var(--warning-muted); color: var(--warning-fg); border-color: var(--warning-border); }
+  .status-pending .sdot  { background: var(--warning); animation: blink 1.8s infinite; }
+  .amount-main { font-family: var(--font-mono); font-size: 13px; font-weight: 500; }
+  .amount-sub  { font-family: var(--font-mono); font-size: 10px; color: var(--muted-foreground); margin-top: 2px; }
+  .amount-arrow { margin: 0 3px; opacity: 0.35; }
+  .actions-wrap { display: flex; align-items: center; gap: 7px; }
+  .btn { display: inline-flex; align-items: center; gap: 4px; border-radius: var(--radius); padding: 6px 13px; font-family: var(--font-sans); font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.14s ease; border: 1px solid; }
+  .btn-approve { background: var(--success-muted); color: var(--success-fg); border-color: var(--success-border); }
+  .btn-reject { background: var(--danger-muted); color: var(--danger-fg); border-color: var(--danger-border); }
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--card); border: 1px solid var(--border); border-radius: calc(var(--radius) + 4px); padding: 12px 18px; font-size: 13px; color: var(--foreground); display: flex; align-items: center; gap: 10px; z-index: 9999; animation: toastIn 0.28s ease; box-shadow: var(--shadow-md); }
   .toast-dot { width: 8px; height: 8px; border-radius: 50%; }
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateY(16px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
 `;
 
 export default function ManagerDashboard() {
-  const [approvals, setApprovals] = useState(initialApprovals);
+  const [approvals, setApprovals] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
 
-  const handleAction = (id, newStatus) => {
-    setApprovals(prev =>
-      prev.map(item => item.id === id ? { ...item, status: newStatus } : item)
-    );
-    const item = approvals.find(a => a.id === id);
-    setToast({ status: newStatus, desc: item?.description });
-    setTimeout(() => setToast(null), 2800);
+  const API_BASE = "http://localhost:5000/api/manager";
+
+  useEffect(() => {
+    const fetchRequests = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_BASE}/pending`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (response.ok) setApprovals(data);
+      } catch (err) {
+        console.error("Fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchRequests();
+  }, []);
+
+  const handleAction = async (requestId, newStatus) => {
+    try {
+      const token = localStorage.getItem('token');
+      const item = approvals.find(a => a.id === requestId);
+      const response = await fetch(`${API_BASE}/action`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
+        body: JSON.stringify({ requestId, status: newStatus, comments: "Dashboard action" })
+      });
+
+      if (response.ok) {
+        setApprovals(prev => prev.filter(a => a.id !== requestId));
+        setToast({ status: newStatus, desc: item?.expense?.description });
+        setTimeout(() => setToast(null), 2800);
+      }
+    } catch {
+      alert("Action failed.");
+    }
   };
 
-  const counts = {
-    pending:  approvals.filter(a => a.status === 'PENDING').length,
-    approved: approvals.filter(a => a.status === 'APPROVED').length,
-    rejected: approvals.filter(a => a.status === 'REJECTED').length,
-  };
+  if (loading) return <div className="mgr-wrap">Loading...</div>;
 
   return (
     <>
-      <style>{style}</style>
-      <div className="mgr-root">
+      <style>{css}</style>
+      <div className="mgr-wrap">
         <div className="mgr-header">
-          <div className="mgr-title-group">
+          <div>
             <div className="mgr-eyebrow">Expense Management</div>
-            <h1 className="mgr-title">Manager<span>'s</span> Dashboard</h1>
+            <h1 className="mgr-title">Manager<span className="mgr-title-accent">'s</span> Dashboard</h1>
           </div>
           <div className="mgr-stats">
-            <div className="mgr-stat pending">
-              <div className="mgr-stat-num">{counts.pending}</div>
-              <div className="mgr-stat-label">Pending</div>
-            </div>
-            <div className="mgr-stat approved">
-              <div className="mgr-stat-num">{counts.approved}</div>
-              <div className="mgr-stat-label">Approved</div>
-            </div>
-            <div className="mgr-stat rejected">
-              <div className="mgr-stat-num">{counts.rejected}</div>
-              <div className="mgr-stat-label">Rejected</div>
+            <div className="stat-chip">
+              <div className="stat-dot pending" />
+              <span className="stat-num">{approvals.length}</span>
+              <span className="stat-label">To Review</span>
             </div>
           </div>
         </div>
 
         <div className="mgr-card">
-          <div className="mgr-card-header">
-            <div className="mgr-card-title">Approvals to Review</div>
-            <div className="mgr-badge">{approvals.length} requests</div>
+          <div className="mgr-card-head">
+            <span className="mgr-card-title">Approvals to Review</span>
+            <span className="mgr-count-badge">{approvals.length} requests</span>
           </div>
           <table>
             <thead>
@@ -434,74 +180,54 @@ export default function ManagerDashboard() {
             </thead>
             <tbody>
               {approvals.map(item => {
-                const cat = categoryColors[item.category] || { bg: '#1a1a1a', text: '#aaa', dot: '#aaa' };
+                const cat = categoryConfig[item.expense.category] || { emoji: '📁' };
                 const st = statusConfig[item.status];
                 return (
                   <tr key={item.id}>
-                    <td className="desc-cell">
-                      <div className="desc-name">{item.description}</div>
-                      <div className="desc-date">{item.date}</div>
+                    <td>
+                      <div className="desc-title">{item.expense.description}</div>
+                      <div className="desc-date">{new Date(item.expense.createdAt).toLocaleDateString()}</div>
                     </td>
                     <td>
-                      <div className="owner-cell">
-                        <div className="owner-avatar">{item.ownerInitials}</div>
-                        <div className="owner-name">{item.owner}</div>
+                      <div className="owner-wrap">
+                        <div className="owner-avatar">{item.expense.employee.name.charAt(0)}</div>
+                        <span className="owner-name">{item.expense.employee.name}</span>
                       </div>
                     </td>
                     <td>
-                      <span className="cat-pill" style={{ background: cat.bg, color: cat.text }}>
-                        <span className="cat-dot" style={{ background: cat.dot }} />
-                        {item.category}
-                      </span>
+                      <span className="cat-pill">{cat.emoji} {item.expense.category}</span>
                     </td>
                     <td>
-                      <span className="status-pill" style={{ background: st.bg, color: st.color }}>
-                        <span
-                          className={`status-dot ${item.status.toLowerCase()}`}
-                          style={{ background: st.color }}
-                        />
+                      <span className={`status-pill ${st.cls}`}>
+                        <span className="sdot" />
                         {st.label}
                       </span>
                     </td>
-                    <td className="amount-cell">
-                      <div className="amount-submitted">
-                        {item.submittedAmount.toLocaleString()} {item.submittedCurrency}
-                      </div>
-                      <div className="amount-converted">
+                    <td>
+                      <div className="amount-main">{item.expense.submittedAmount} {item.expense.submittedCurrency}</div>
+                      <div className="amount-sub">
                         <span className="amount-arrow">→</span>
-                        ₹{item.baseAmount.toLocaleString()} {item.baseCurrency}
+                        ₹{item.calculatedBaseAmount} INR
                       </div>
                     </td>
                     <td>
-                      {item.status === 'PENDING' ? (
-                        <div className="actions-cell">
-                          <button className="btn btn-approve" onClick={() => handleAction(item.id, 'APPROVED')}>
-                            ✓ Approve
-                          </button>
-                          <button className="btn btn-reject" onClick={() => handleAction(item.id, 'REJECTED')}>
-                            ✕ Reject
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="readonly-tag">Read-only</span>
-                      )}
+                      <div className="actions-wrap">
+                        <button className="btn btn-approve" onClick={() => handleAction(item.id, 'APPROVED')}>✓ Approve</button>
+                        <button className="btn btn-reject" onClick={() => handleAction(item.id, 'REJECTED')}>✕ Reject</button>
+                      </div>
                     </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
+          {approvals.length === 0 && <div style={{padding:'40px',textAlign:'center',color:'var(--muted-foreground)'}}>All caught up!</div>}
         </div>
 
         {toast && (
           <div className="toast">
-            <div
-              className="toast-dot"
-              style={{ background: toast.status === 'APPROVED' ? '#3dd68c' : '#f45353' }}
-            />
-            <span>
-              <strong>{toast.desc}</strong> {toast.status === 'APPROVED' ? 'approved' : 'rejected'} successfully
-            </span>
+            <div className="toast-dot" style={{ background: toast.status === 'APPROVED' ? 'var(--success)' : 'var(--destructive)' }} />
+            <span><strong>{toast.desc}</strong> {toast.status === 'APPROVED' ? 'approved' : 'rejected'}.</span>
           </div>
         )}
       </div>

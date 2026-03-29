@@ -1,7 +1,5 @@
 const jwt = require("jsonwebtoken");
-
-const ACCESS_SECRET = process.env.JWT_SECRET || "your-secret-key-change-this";
-const REFRESH_SECRET = process.env.JWT_SECRET || "your-secret-key-change-this";
+const { ACCESS_SECRET, REFRESH_SECRET } = require("../../config/env");
 
 const generateAccessToken = (user) => {
   return jwt.sign(
@@ -11,7 +9,7 @@ const generateAccessToken = (user) => {
       companyId: user.companyId,
     },
     ACCESS_SECRET,
-    { expiresIn: "15m" }
+    { expiresIn: "10d" }
   );
 };
 
