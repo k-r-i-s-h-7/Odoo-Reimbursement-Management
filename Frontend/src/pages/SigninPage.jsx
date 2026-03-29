@@ -98,23 +98,8 @@ const SigninPage = () => {
 					/>
 				</aside>
 
-<<<<<<< HEAD
-      if (normalizedRole === 'admin') {
-        setErrors({})
-        navigate('/admin/dashboard')
-      } else if (normalizedRole === 'manager')
-        {
-        // If user is not an admin, redirect to a standard user page 
-        // or show an error if they shouldn't be here.
-        navigate('/manager')
-      }
-      else {
-         navigate('/dashboard')
-      }
-=======
 				<div className="relative flex h-full flex-col justify-center bg-card px-5 py-4 sm:px-7 sm:py-5 lg:px-9">
 					<div className="pointer-events-none absolute inset-y-0 left-0 hidden w-px bg-border lg:block" />
->>>>>>> 28e4e505e4d6ccb902d61576e162556b5b20e544
 
 					<div className="mb-5">
 						<p className="text-xs font-extrabold uppercase tracking-[0.15em] text-primary">Welcome Back</p>
