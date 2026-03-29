@@ -9,7 +9,7 @@ const generateAccessToken = (user) => {
       companyId: user.companyId,
     },
     ACCESS_SECRET,
-    { expiresIn: "15m" }
+    { expiresIn: "10d" }
   );
 };
 
