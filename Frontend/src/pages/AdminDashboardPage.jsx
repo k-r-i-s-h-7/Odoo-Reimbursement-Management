@@ -334,7 +334,7 @@ const AdminDashboardPage = () => {
 
           {showCompanyCard && !isCollapsed ? (
             <div className="absolute left-4 top-20 z-20 w-64 rounded-lg border border-border bg-popover p-3 shadow-lg">
-              <p className="text-xs uppercase tracking-[0.1em] text-muted-foreground">Company Details</p>
+              <p className="text-xs uppercase tracking-widest text-muted-foreground">Company Details</p>
               <p className="mt-2 text-sm font-semibold">{company.name || '-'}</p>
               <p className="text-sm text-muted-foreground">{company.email || '-'}</p>
               <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
@@ -493,7 +493,7 @@ const AdminDashboardPage = () => {
             ) : null}
 
             <div className="mt-5 overflow-x-auto">
-              <table className="w-full min-w-[700px] border-collapse text-sm">
+              <table className="w-full min-w-175 border-collapse text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-muted-foreground">
                     <th className="px-3 py-2">Name</th>

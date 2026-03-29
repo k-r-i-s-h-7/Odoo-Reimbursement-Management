@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import SignupForm from '../components/auth/SignupForm'
 import { getCountriesWithCurrency, getUsdRateForCurrency } from '../services/countryCurrencyService'
 import { validateSignupForm } from '../utils/signupFormValidation'
@@ -13,6 +13,7 @@ const initialValues = {
 }
 
 const SignupPage = () => {
+  const navigate = useNavigate()
   const [formData, setFormData] = useState(initialValues)
   const [errors, setErrors] = useState({})
   const [countries, setCountries] = useState([])
@@ -107,11 +108,10 @@ const SignupPage = () => {
       return
     }
 
-    // Replace with backend signup API integration.
-    alert(`Signup ready for ${formData.name}`)
     setFormData(initialValues)
     setErrors({})
     setUsdRate(null)
+    navigate('/admin/dashboard')
   }
 
   return (
@@ -119,8 +119,8 @@ const SignupPage = () => {
       <div className="pointer-events-none absolute inset-0 [background:radial-gradient(circle_at_12%_15%,var(--color-accent)/0.30,transparent_38%),radial-gradient(circle_at_88%_78%,var(--color-primary)/0.20,transparent_34%)]" />
 
       <section className="relative grid h-full w-full items-stretch gap-0 lg:grid-cols-2">
-        <aside className="relative overflow-hidden bg-gradient-to-br from-violet-600 via-fuchsia-600 to-purple-700 px-5 py-6 sm:px-7 sm:py-7 lg:h-full">
-          <div className="pointer-events-none absolute inset-0 opacity-18 [background-image:linear-gradient(rgba(255,255,255,0.22)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.22)_1px,transparent_1px)] [background-size:28px_28px]" />
+        <aside className="relative overflow-hidden bg-linear-to-br from-violet-600 via-fuchsia-600 to-purple-700 px-5 py-6 sm:px-7 sm:py-7 lg:h-full">
+          <div className="pointer-events-none absolute inset-0 opacity-18 bg-[linear-gradient(rgba(255,255,255,0.22)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.22)_1px,transparent_1px)] bg-size-[28px_28px]" />
           <img
             src="/signup.png"
             alt="Admin signup"

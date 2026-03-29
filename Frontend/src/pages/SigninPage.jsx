@@ -45,7 +45,6 @@ const SigninPage = () => {
       return
     }
 
-    alert(`Welcome back, ${formData.email}`)
     setErrors({})
     navigate('/admin/dashboard')
   }
@@ -55,8 +54,8 @@ const SigninPage = () => {
       <div className="pointer-events-none absolute inset-0 [background:radial-gradient(circle_at_16%_18%,var(--color-accent)/0.30,transparent_38%),radial-gradient(circle_at_84%_82%,var(--color-primary)/0.20,transparent_34%)]" />
 
       <section className="relative grid h-full w-full items-stretch gap-0 lg:grid-cols-2">
-        <aside className="relative overflow-hidden bg-gradient-to-br from-violet-600 via-fuchsia-600 to-purple-700 px-5 py-6 sm:px-7 sm:py-7 lg:h-full">
-          <div className="pointer-events-none absolute inset-0 opacity-18 [background-image:linear-gradient(rgba(255,255,255,0.22)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.22)_1px,transparent_1px)] [background-size:28px_28px]" />
+        <aside className="relative overflow-hidden bg-linear-to-br from-violet-600 via-fuchsia-600 to-purple-700 px-5 py-6 sm:px-7 sm:py-7 lg:h-full">
+          <div className="pointer-events-none absolute inset-0 opacity-18 bg-[linear-gradient(rgba(255,255,255,0.22)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.22)_1px,transparent_1px)] bg-size-[28px_28px]" />
           <img
             src="/login.png"
             alt="Sign in"
