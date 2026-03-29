@@ -168,7 +168,7 @@ const SignupForm = ({
 
       <button
         type="submit"
-        className="inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-md transition hover:opacity-90"
+        className="inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-md transition hover:cursor-pointer hover:opacity-90"
       >
         Sign Up
       </button>
