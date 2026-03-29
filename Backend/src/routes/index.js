@@ -1,13 +1,14 @@
-const express = require("express");
+const express = require('express');
+const authRoutes = require('./AuthRoutes');
+const adminRoutes = require('./adminRoutes');
+const managerRoutes = require('./managerRoutes');
+const employeeRoutes = require('./employeeRoutes');
+
 const router = express.Router();
-const authRoutes = require("./AuthRoutes");
 
-const managerRoutes = require('./managerRoutes'); // Adjust if you named it differently
-
-// ... other routes like /auth or /user ...
-
+router.use('/auth', authRoutes);
+router.use('/admin', adminRoutes);
 router.use('/manager', managerRoutes);
-const adminRoutes = require("./adminRoutes")
-router.use("/auth", authRoutes);
-router.use("/admin",adminRoutes)
+router.use('/employee', employeeRoutes);
+
 module.exports = router;

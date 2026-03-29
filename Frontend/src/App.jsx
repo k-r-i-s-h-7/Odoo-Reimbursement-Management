@@ -4,6 +4,7 @@ import AdminDashboardPage from './pages/AdminDashboardPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import SigninPage from './pages/SigninPage'
 import SignupPage from './pages/SignupPage'
+import EmployeeDashboardPage from './pages/EmployeeDashboardPage'
 import ManagerDashboard from './pages/ManagerDashboard'
 
 const App = () => {
@@ -15,10 +16,8 @@ const App = () => {
         <Route path="/signin" element={<SigninPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
-        
-        {/* 2. ADD THIS LINE HERE - Inside the Routes block */}
-        <Route path="/manager" element={<ManagerDashboard />} />
-        
+        <Route path="/manager/dashboard" element={<ManagerDashboard />} />
+        <Route path="/employee/dashboard" element={<EmployeeDashboardPage />} />
       </Routes>
     </BrowserRouter>
   )

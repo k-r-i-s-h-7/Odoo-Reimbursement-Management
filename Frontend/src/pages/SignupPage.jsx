@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import SignupForm from '../components/auth/SignupForm'
 import { getCountriesWithCurrency, getUsdRateForCurrency } from '../services/countryCurrencyService'
+import { apiFetch } from '../services/apiClient'
 import { validateSignupForm } from '../utils/signupFormValidation'
 
 // 1. Added companyName to match backend requirements
@@ -116,30 +117,17 @@ const SignupPage = () => {
     setErrors({}) // Clear previous generic errors
 
     try {
-      // NOTE: Update the URL to match your actual backend endpoint route
-      const response = await fetch('http://localhost:5000/api/auth/signup', {
+      const data = await apiFetch('/auth/signup', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           name: formData.name,
           email: formData.email,
           password: formData.password,
-          companyName: formData.name,
+          companyName: formData.companyName || formData.name,
           country: formData.country,
-          // Extract the currency code required by backend
-          currency: selectedCountry?.currencyCode || 'USD', 
+          currency: selectedCountry?.currencyCode || 'USD',
         }),
       })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        // Capture backend validation/error messages
-        setErrors({ submit: data.error || data.message || 'Failed to sign up.' })
-        return
-      }
 
       // 3. Store the generated JWT tokens
       if (data.accessToken) localStorage.setItem('accessToken', data.accessToken)
@@ -151,7 +139,7 @@ const SignupPage = () => {
       navigate('/admin/dashboard')
     } catch (error) {
       console.error('Signup error:', error)
-      setErrors({ submit: 'A network error occurred. Please try again later.' })
+      setErrors({ submit: error.message || 'A network error occurred. Please try again later.' })
     } finally {
       setIsSubmitting(false)
     }

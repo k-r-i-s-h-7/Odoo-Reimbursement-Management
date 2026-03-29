@@ -137,7 +137,7 @@ export default function ManagerDashboard() {
         setToast({ status: newStatus, desc: item?.expense?.description });
         setTimeout(() => setToast(null), 2800);
       }
-    } catch (err) {
+    } catch {
       alert("Action failed.");
     }
   };
