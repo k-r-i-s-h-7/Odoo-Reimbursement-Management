@@ -113,6 +113,13 @@ const login = async (email, password) => {
   return {
     accessToken,
     refreshToken,
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      roleId: user.roleId,
+      companyId: user.companyId,
+    },
     company: user.company,
     role: user.role,
   };
