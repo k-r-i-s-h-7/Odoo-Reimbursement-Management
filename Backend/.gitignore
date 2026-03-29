@@ -9,7 +9,8 @@ node_modules/
 logs
 *.log
 npm-debug.log*
-
+./package.json
+./package-lock.json
 # OS generated files
 .DS_Store
 Thumbs.db

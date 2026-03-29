@@ -4,11 +4,13 @@ import SignupForm from '../components/auth/SignupForm'
 import { getCountriesWithCurrency, getUsdRateForCurrency } from '../services/countryCurrencyService'
 import { validateSignupForm } from '../utils/signupFormValidation'
 
+// 1. Added companyName to match backend requirements
 const initialValues = {
   name: '',
   email: '',
   password: '',
   confirmPassword: '',
+  companyName: '', 
   country: '',
 }
 
@@ -20,6 +22,7 @@ const SignupPage = () => {
   const [isCountriesLoading, setIsCountriesLoading] = useState(true)
   const [usdRate, setUsdRate] = useState(null)
   const [isRateLoading, setIsRateLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false) // Added submitting state
 
   useEffect(() => {
     let active = true
@@ -99,7 +102,8 @@ const SignupPage = () => {
     }
   }
 
-  const handleSubmit = (event) => {
+  // 2. Updated handleSubmit to call backend API
+  const handleSubmit = async (event) => {
     event.preventDefault()
 
     const nextErrors = validateSignupForm(formData)
@@ -108,10 +112,49 @@ const SignupPage = () => {
       return
     }
 
-    setFormData(initialValues)
-    setErrors({})
-    setUsdRate(null)
-    navigate('/admin/dashboard')
+    setIsSubmitting(true)
+    setErrors({}) // Clear previous generic errors
+
+    try {
+      // NOTE: Update the URL to match your actual backend endpoint route
+      const response = await fetch('http://localhost:5000/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          companyName: formData.name,
+          country: formData.country,
+          // Extract the currency code required by backend
+          currency: selectedCountry?.currencyCode || 'USD', 
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        // Capture backend validation/error messages
+        setErrors({ submit: data.error || data.message || 'Failed to sign up.' })
+        return
+      }
+
+      // 3. Store the generated JWT tokens
+      if (data.accessToken) localStorage.setItem('accessToken', data.accessToken)
+      if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken)
+
+      setFormData(initialValues)
+      setErrors({})
+      setUsdRate(null)
+      navigate('/admin/dashboard')
+    } catch (error) {
+      console.error('Signup error:', error)
+      setErrors({ submit: 'A network error occurred. Please try again later.' })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -142,6 +185,13 @@ const SignupPage = () => {
             </p>
           </div>
 
+          {/* Render backend errors if they exist */}
+          {errors.submit && (
+            <div className="mb-4 rounded border border-red-500 bg-red-50 p-3 text-sm text-red-600">
+              {errors.submit}
+            </div>
+          )}
+
           <SignupForm
             formData={formData}
             errors={errors}
@@ -152,6 +202,7 @@ const SignupPage = () => {
             isRateLoading={isRateLoading}
             onChange={handleChange}
             onSubmit={handleSubmit}
+            isSubmitting={isSubmitting} // Passed down to disable button
           />
 
           <p className="mt-4 text-sm text-muted-foreground">
