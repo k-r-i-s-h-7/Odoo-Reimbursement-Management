@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const categoryConfig = {
   Food:       { emoji: '🍽️' },
@@ -95,9 +96,11 @@ const css = `
 `;
 
 export default function ManagerDashboard() {
+  const navigate = useNavigate();
   const [approvals, setApprovals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const API_BASE = "http://localhost:5000/api/manager";
 
@@ -142,95 +145,174 @@ export default function ManagerDashboard() {
     }
   };
 
-  if (loading) return <div className="mgr-wrap">Loading...</div>;
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-[linear-gradient(140deg,#f8fafc_0%,#eef3ff_48%,#f9f6f2_100%)] text-foreground">
+        <div className="mx-auto flex max-w-[1500px] gap-4 p-3 sm:p-5">
+          <aside className={`${isSidebarCollapsed ? 'w-[76px]' : 'w-[280px]'} sticky top-3 hidden h-[calc(100vh-1.5rem)] shrink-0 flex-col rounded-2xl border border-border/70 bg-card/90 p-4 shadow-lg backdrop-blur md:flex`}>
+            <div className="flex items-center justify-between gap-2">
+              {!isSidebarCollapsed ? <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">Manager Space</h2> : null}
+              <button type="button" onClick={() => setIsSidebarCollapsed((prev) => !prev)} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-lg hover:bg-muted">{isSidebarCollapsed ? '>' : '<'}</button>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-border/70 bg-background p-3">
+              <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">M</div>
+              {!isSidebarCollapsed ? (
+                <>
+                  <p className="mt-2 text-center text-sm font-semibold">Manager</p>
+                  <p className="text-center text-xs text-muted-foreground">Role: Manager</p>
+                </>
+              ) : null}
+            </div>
+
+            {!isSidebarCollapsed ? (
+              <div className="mt-5 space-y-2 text-sm">
+                <div className="rounded-lg border border-border/60 bg-muted/50 px-3 py-2">To Review: {approvals.length}</div>
+              </div>
+            ) : null}
+
+            <div className="mt-5 space-y-2">
+              <button type="button" onClick={() => {}} className={`inline-flex h-10 w-full items-center justify-center rounded-lg border px-3 text-sm font-semibold transition border-border bg-background hover:bg-muted`}>{isSidebarCollapsed ? 'A' : 'Approvals'}</button>
+            </div>
+
+            <button type="button" onClick={handleLogout} className="mt-auto inline-flex h-10 items-center justify-center rounded-lg border border-destructive/40 bg-destructive/10 px-3 text-sm font-semibold text-destructive hover:bg-destructive/20">{isSidebarCollapsed ? 'X' : 'Logout'}</button>
+          </aside>
+
+          <section className="flex-1 space-y-4">
+            <div className="rounded-2xl border border-border/70 bg-card/90 p-5 shadow-md backdrop-blur">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Manager Dashboard</p>
+                  <h1 className="mt-1 text-2xl font-bold">Approvals</h1>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border/70 bg-card/90 p-5 shadow-sm text-center">Loading approvals...</div>
+          </section>
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <>
+    <main className="min-h-screen bg-[linear-gradient(140deg,#f8fafc_0%,#eef3ff_48%,#f9f6f2_100%)] text-foreground">
       <style>{css}</style>
-      <div className="mgr-wrap">
-        <div className="mgr-header">
-          <div>
-            <div className="mgr-eyebrow">Expense Management</div>
-            <h1 className="mgr-title">Manager<span className="mgr-title-accent">'s</span> Dashboard</h1>
+      <div className="mx-auto flex max-w-[1500px] gap-4 p-3 sm:p-5">
+        <aside className={`${isSidebarCollapsed ? 'w-[76px]' : 'w-[280px]'} sticky top-3 hidden h-[calc(100vh-1.5rem)] shrink-0 flex-col rounded-2xl border border-border/70 bg-card/90 p-4 shadow-lg backdrop-blur md:flex`}>
+          <div className="flex items-center justify-between gap-2">
+            {!isSidebarCollapsed ? <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">Manager Space</h2> : null}
+            <button type="button" onClick={() => setIsSidebarCollapsed((prev) => !prev)} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-lg hover:bg-muted">{isSidebarCollapsed ? '>' : '<'}</button>
           </div>
-          <div className="mgr-stats">
-            <div className="stat-chip">
-              <div className="stat-dot pending" />
-              <span className="stat-num">{approvals.length}</span>
-              <span className="stat-label">To Review</span>
+
+          <div className="mt-5 rounded-xl border border-border/70 bg-background p-3">
+            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">M</div>
+            {!isSidebarCollapsed ? (
+              <>
+                <p className="mt-2 text-center text-sm font-semibold">Manager</p>
+                <p className="text-center text-xs text-muted-foreground">Role: Manager</p>
+              </>
+            ) : null}
+          </div>
+
+          {!isSidebarCollapsed ? (
+            <div className="mt-5 space-y-2 text-sm">
+              <div className="rounded-lg border border-border/60 bg-muted/50 px-3 py-2">To Review: {approvals.length}</div>
+            </div>
+          ) : null}
+
+          <div className="mt-5 space-y-2">
+            <button type="button" onClick={() => {}} className={`inline-flex h-10 w-full items-center justify-center rounded-lg border px-3 text-sm font-semibold transition border-border bg-background hover:bg-muted`}>{isSidebarCollapsed ? 'A' : 'Approvals'}</button>
+          </div>
+
+          <button type="button" onClick={handleLogout} className="mt-auto inline-flex h-10 items-center justify-center rounded-lg border border-destructive/40 bg-destructive/10 px-3 text-sm font-semibold text-destructive hover:bg-destructive/20">{isSidebarCollapsed ? 'X' : 'Logout'}</button>
+        </aside>
+
+        <section className="flex-1 space-y-4">
+          <div className="mgr-header">
+            <div>
+              <div className="mgr-eyebrow">Expense Management</div>
+              <h1 className="mgr-title">Manager<span className="mgr-title-accent">'s</span> Dashboard</h1>
+            </div>
+            <div className="mgr-stats">
+              <div className="stat-chip">
+                <div className="stat-dot pending" />
+                <span className="stat-num">{approvals.length}</span>
+                <span className="stat-label">To Review</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="mgr-card">
-          <div className="mgr-card-head">
-            <span className="mgr-card-title">Approvals to Review</span>
-            <span className="mgr-count-badge">{approvals.length} requests</span>
+          <div className="mgr-card">
+            <div className="mgr-card-head">
+              <span className="mgr-card-title">Approvals to Review</span>
+              <span className="mgr-count-badge">{approvals.length} requests</span>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Subject</th>
+                  <th>Owner</th>
+                  <th>Category</th>
+                  <th>Status</th>
+                  <th>Amount</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {approvals.map(item => {
+                  const cat = categoryConfig[item.expense.category] || { emoji: '📁' };
+                  const st = statusConfig[item.status];
+                  return (
+                    <tr key={item.id}>
+                      <td>
+                        <div className="desc-title">{item.expense.description}</div>
+                        <div className="desc-date">{new Date(item.expense.createdAt).toLocaleDateString()}</div>
+                      </td>
+                      <td>
+                        <div className="owner-wrap">
+                          <div className="owner-avatar">{item.expense.employee.name.charAt(0)}</div>
+                          <span className="owner-name">{item.expense.employee.name}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="cat-pill">{cat.emoji} {item.expense.category}</span>
+                      </td>
+                      <td>
+                        <span className={`status-pill ${st.cls}`}>
+                          <span className="sdot" />
+                          {st.label}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="amount-main">{item.expense.submittedAmount} {item.expense.submittedCurrency}</div>
+                        <div className="amount-sub">
+                          <span className="amount-arrow">→</span>
+                          ₹{item.calculatedBaseAmount} INR
+                        </div>
+                      </td>
+                      <td>
+                        <div className="actions-wrap">
+                          <button className="btn btn-approve" onClick={() => handleAction(item.id, 'APPROVED')}>✓ Approve</button>
+                          <button className="btn btn-reject" onClick={() => handleAction(item.id, 'REJECTED')}>✕ Reject</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {approvals.length === 0 && <div style={{padding:'40px',textAlign:'center',color:'var(--muted-foreground)'}}>All caught up!</div>}
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Subject</th>
-                <th>Owner</th>
-                <th>Category</th>
-                <th>Status</th>
-                <th>Amount</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {approvals.map(item => {
-                const cat = categoryConfig[item.expense.category] || { emoji: '📁' };
-                const st = statusConfig[item.status];
-                return (
-                  <tr key={item.id}>
-                    <td>
-                      <div className="desc-title">{item.expense.description}</div>
-                      <div className="desc-date">{new Date(item.expense.createdAt).toLocaleDateString()}</div>
-                    </td>
-                    <td>
-                      <div className="owner-wrap">
-                        <div className="owner-avatar">{item.expense.employee.name.charAt(0)}</div>
-                        <span className="owner-name">{item.expense.employee.name}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="cat-pill">{cat.emoji} {item.expense.category}</span>
-                    </td>
-                    <td>
-                      <span className={`status-pill ${st.cls}`}>
-                        <span className="sdot" />
-                        {st.label}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="amount-main">{item.expense.submittedAmount} {item.expense.submittedCurrency}</div>
-                      <div className="amount-sub">
-                        <span className="amount-arrow">→</span>
-                        ₹{item.calculatedBaseAmount} INR
-                      </div>
-                    </td>
-                    <td>
-                      <div className="actions-wrap">
-                        <button className="btn btn-approve" onClick={() => handleAction(item.id, 'APPROVED')}>✓ Approve</button>
-                        <button className="btn btn-reject" onClick={() => handleAction(item.id, 'REJECTED')}>✕ Reject</button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {approvals.length === 0 && <div style={{padding:'40px',textAlign:'center',color:'var(--muted-foreground)'}}>All caught up!</div>}
-        </div>
 
-        {toast && (
-          <div className="toast">
-            <div className="toast-dot" style={{ background: toast.status === 'APPROVED' ? 'var(--success)' : 'var(--destructive)' }} />
-            <span><strong>{toast.desc}</strong> {toast.status === 'APPROVED' ? 'approved' : 'rejected'}.</span>
-          </div>
-        )}
+          {toast && (
+            <div className="toast">
+              <div className="toast-dot" style={{ background: toast.status === 'APPROVED' ? 'var(--success)' : 'var(--destructive)' }} />
+              <span><strong>{toast.desc}</strong> {toast.status === 'APPROVED' ? 'approved' : 'rejected'}.</span>
+            </div>
+          )}
+        </section>
       </div>
-    </>
+    </main>
   );
 }
