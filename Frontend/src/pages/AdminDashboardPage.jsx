@@ -47,7 +47,7 @@ const ApprovalsIcon = () => (
 )
 
 const createDefaultApprovalConfig = (user) => ({
-  ruleTitle: '',
+  ruleType: 'percentage', // percentage | specific-approver | hybrid
   approvalManagerId: user?.role === 'EMPLOYEE' ? user?.managerId ?? '' : '',
   isManagerApprover: user?.role === 'EMPLOYEE' ? Boolean(user?.managerId) : false,
   approversSequence: false,
@@ -55,6 +55,8 @@ const createDefaultApprovalConfig = (user) => ({
   requiredApproverIds: user?.role === 'EMPLOYEE' && user?.managerId ? [user.managerId] : [],
   approverIds: user?.role === 'EMPLOYEE' && user?.managerId ? [user.managerId] : [],
   isSelfApprover: user?.role === 'MANAGER',
+  specificApproverId: '', // for specific-approver rule
+  hybridPercentage: '60', // for hybrid rule
 })
 
 const AdminDashboardPage = () => {
@@ -339,6 +341,23 @@ const AdminDashboardPage = () => {
     }))
   }
 
+  const moveApprover = (approverId, direction) => {
+    updateApprovalConfig((current) => {
+      const ids = [...(current.approverIds ?? [])]
+      const index = ids.findIndex((id) => id === approverId)
+      if (index === -1) return current
+
+      const target = direction === 'up' ? index - 1 : index + 1
+      if (target < 0 || target >= ids.length) return current
+
+      ;[ids[index], ids[target]] = [ids[target], ids[index]]
+      return {
+        ...current,
+        approverIds: ids,
+      }
+    })
+  }
+
   return (
     <main className="flex h-screen overflow-hidden bg-background text-foreground">
       {/* Sidebar */}
@@ -568,14 +587,20 @@ const AdminDashboardPage = () => {
                   <div className="grid gap-5 lg:grid-cols-2">
                     <div className="space-y-4">
                       <div>
-                        <label className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Approval Rule Name</label>
+                        <label className="text-xs uppercase tracking-[0.08em] text-muted-foreground">User</label>
+                        <input className={`${inputClass} mt-1`} value={selectedUser.name} readOnly />
+                      </div>
+
+                      <div>
+                        <label className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Approval Rule</label>
                         <input
                           className={`${inputClass} mt-1`}
+                          placeholder="Approval rule for miscellaneous expenses"
                           value={approvalConfig.ruleTitle}
-                          onChange={(e) => updateApprovalConfig({ ruleTitle: e.target.value })}
-                          placeholder="e.g. Travel Policy"
+                          onChange={(event) => updateApprovalConfig({ ruleTitle: event.target.value })}
                         />
                       </div>
+
                       <div>
                         <label className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Direct Manager</label>
                         <div className="mt-1 flex gap-2">
@@ -614,6 +639,27 @@ const AdminDashboardPage = () => {
                             </div>
                           </div>
                         ))}
+                      </div>
+
+                      {/* Save Button and Message */}
+                      <div className="col-span-1 flex flex-col gap-3 lg:col-span-2">
+                        {approvalSaveMessage ? (
+                          <p className={`rounded-md px-3 py-2 text-sm ${
+                            approvalSaveMessage.startsWith('✓')
+                              ? 'bg-green-50 text-green-700'
+                              : 'bg-red-50 text-red-700'
+                          }`}>
+                            {approvalSaveMessage}
+                          </p>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={handleSaveApprovalRule}
+                          disabled={isSavingApprovals}
+                          className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:cursor-pointer hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isSavingApprovals ? 'Saving...' : 'Save Approval Rule'}
+                        </button>
                       </div>
                     </div>
                   </div>
